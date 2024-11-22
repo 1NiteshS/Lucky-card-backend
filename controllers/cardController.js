@@ -1568,23 +1568,11 @@ export const getAdminGameResultsForAdmin = async (req, res) => {
       .sort({ _id: -1})
 
     const bets =  gameData.Bets
-    // console.log("bets", bets);
-
 
     const transformedResults = adminGameResults.map((result) => {
-      // Combine winners and losers into a single adminresult array
-      const adminresult = [...(result.winners || []), ...(result.losers || [])];
+
+    const adminresult = [...(result.winners || []), ...(result.losers || [])];
     
-      // Loop through adminresult and add the ticketTime directly within each admin entry
-      // const updatedAdminResult = adminresult.map((admin) => {
-      //   // Find the matching bet based on ticketsID
-      //   const matchingBet = bets.find(bet => bet.ticketsID === admin.ticketsID);
-    
-      //   // Assign the tickerTime to the adminresult item
-      //   admin.ticketTime = matchingBet ? matchingBet.ticketTime : null;  // If no match, assign null
-    
-      //   return admin; // Return the updated admin object
-      // });     
     
       return {
         _id: result._id,
