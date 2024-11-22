@@ -47,8 +47,6 @@ export const getAllAdmins = async (req, res) => {
       walletBalance: admin.wallet,
     }));
 
-    console.log(adminData);
-
     return res.status(200).json(adminData);
   } catch (error) {
     console.error("Error fetching admins:", error);
@@ -324,7 +322,6 @@ export const setWithdrawalAmount = async (req, res) => {
 export const getAdminWinnings = async (req, res) => {
   try {
     const adminId = req.params;
-    console.log(adminId);
 
     // Ensure the requesting admin can only access their own data
     // Uncomment and adjust this check if necessary
@@ -339,16 +336,6 @@ export const getAdminWinnings = async (req, res) => {
     const winnings = await AdminWinnings.find(adminId).sort({
       timestamp: -1,
     });
-
-    console.log("winnings ", winnings);
-
-    // If no winnings found, handle that case
-    // if (!winnings.length) {
-    //   return res.status(404).json({
-    //     success: false,
-    //     message: "No winnings found for this admin",
-    //   });
-    // }
 
     res.status(200).json({
       success: true,

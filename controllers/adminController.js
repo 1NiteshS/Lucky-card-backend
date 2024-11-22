@@ -353,9 +353,6 @@ export const getAdminProfile = async (req, res) => {
   try {
     const { adminId } = req.params;  // Get adminId from URL params
 
-    console.log('Requested AdminId:', adminId);
-    console.log('Authenticated Admin:', req.admin);
-
     const admin = await Admin.findOne({ adminId })
       .select('name email adminId wallet isVerified createdAt');
 
@@ -467,9 +464,6 @@ export const addAdminWinning = async (req, res) => {
 
 export const postAllAdminWinnings = async (adminId) => {
   try {
-    console.log(adminId);
-    console.log("A");
-    // const { adminId } = req.params;
     // Validate input
     if (!adminId) {
       console.log("No adminID");
@@ -491,14 +485,10 @@ export const postAllAdminWinnings = async (adminId) => {
     }
     // Find all games where this admin has placed bets
     const games = await Game.find({ 'Bets.adminID': adminId });
-    console.log("Games found:", games);
 
-    //console.log("games", games)
     let totalWinnings = 0;
     const winningRecords = [];
     for (const game of games) {
-      console.log("B");
-
       const selectedCard = await SelectedCard.findOne({ gameId: game.GameId });
       if (!selectedCard) {
         console.log("No selected card for game:", game.GameId);
@@ -509,26 +499,19 @@ export const postAllAdminWinnings = async (adminId) => {
       const winningCardId = selectedCard.cardId;
 
       const winningMultiplier = selectedCard.multiplier;
-      console.log("winningMultiplier", winningMultiplier);
-
 
       let gameWinningAmount = 0;
       // Find this admin's bet in the game
       const adminBet = game.Bets.find(bet => bet.adminID === adminId);
 
       if (adminBet) {
-        console.log("C");
-
         for (const card of adminBet.card) {
           if (card.cardNo === winningCardId) {
             gameWinningAmount += card.Amount * (winningMultiplier * 10);
-            console.log('game winner amt', gameWinningAmount);
           }
         }
       }
       if (gameWinningAmount > 0) {
-        console.log("D");
-
         const winningRecord = new AdminWinnings({
           adminId,
           gameId: game.GameId,
@@ -539,11 +522,7 @@ export const postAllAdminWinnings = async (adminId) => {
         totalWinnings += gameWinningAmount;
       }
     }
-    // Update admin's wallet with total winnings
-    await Admin.findOneAndUpdate(
-      { adminId },
-      { $inc: { wallet: totalWinnings } }
-    );
+
     return {
       success: true,
       message: 'Admin winnings posted successfully',
@@ -594,10 +573,6 @@ export const calculateAndStoreAdminWinnings = async (gameId) => {
 
     const lastCard = selectedCard[selectedCard.length - 1];
 
-    console.log('game', game);
-    console.log('selectedCard', selectedCard);
-    
-
     if (!game || !selectedCard) {
       console.error('Game or SelectedCard not found');
       return;
@@ -638,8 +613,6 @@ export const getAdminWinnings = async (req, res) => {
     const { adminId } = req.params;
     const { from, to } = req.body;
 
-    console.log(adminId);
-
     // Ensure the requesting admin can only access their own data
     // Uncomment and adjust this check if necessary
     // if (req.user.adminId !== adminId) {
@@ -666,8 +639,6 @@ export const getAdminWinnings = async (req, res) => {
 
     // Use the filter in the query
     const winnings = await AdminWinnings.find(filter).sort({ createdAt: -1 });
-
-    console.log("winnings ", winnings);
 
     // If no winnings found, handle that case
     if (!winnings.length) {
