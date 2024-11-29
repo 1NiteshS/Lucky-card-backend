@@ -68,7 +68,7 @@ router.post("/save-selected-cards", processAllSelectedCards);
 router.get("/recent-winning-cards", getLatestSelectedCards);
 
 // Get current percentage mode
-router.get('/percentage-mode', async (req, res) => {
+router.get('/getpercentage-mode', async (req, res) => {
   try {
     let mode = await PercentageMode.findOne();
     if (!mode) {

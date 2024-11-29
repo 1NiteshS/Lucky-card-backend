@@ -674,12 +674,9 @@ const processGameBetsWithZeroRandomAndMin = async (bets) => {
 };
 
 async function selectRandomAmount(validAmounts, percAmount, type) {
-  console.log(validAmounts, percAmount, type);
   
  if (type === "processGameBets") {
-    let allEntries = [];
-    console.log('A');
-    
+    let allEntries = [];   
 
     // Collect all valid entries with their values
     for (let key in validAmounts) {
@@ -705,8 +702,6 @@ async function selectRandomAmount(validAmounts, percAmount, type) {
 
     // Select random entry from top 3
     const randomEntry = topThreeEntries[Math.floor(Math.random() * topThreeEntries.length)];
-    console.log('randomEntry', randomEntry);
-    
 
     return { randomEntry };
   } else if (type === "processGameBetsWithMinAmount") {
