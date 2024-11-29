@@ -13,6 +13,7 @@ import {
   setWithdrawalAmount,
   getWalletHistory,
   getAdminWinnings,
+  getSuperAdminGameTotalInfo,
 } from "../controllers/superAdminController.js";
 import { authSuperAdmin } from "../middleware/auth.js";
 import {
@@ -42,10 +43,11 @@ router.put("/updatePercentage", updatePercentage);
 router.post("/set-withdrawal", setWithdrawalAmount);
 router.get("/wallet-history/:adminId", getWalletHistory);
 
-router.get('/userCount', getUserCount);
-
 router.get("/winnings/:adminId", authSuperAdmin, getAdminWinnings);
 
+router.get("/all-admin-ntp", getSuperAdminGameTotalInfo);
+
+router.get('/userCount', getUserCount);
 router.post('/start-timer', async (req, res) => {
   try {
       const io = getIO(); // Get socket.io instance

@@ -7,16 +7,13 @@ import Game from "../models/gameModel.js";
 import BetPercentage from "../models/BetPercentage.js";
 import AdminWinnings from "../models/AdminWinnings.js";
 import WalletTransaction from "../models/WalletTransaction.js";
+import AdminGameResult from "../models/AdminGameResult.js";
 
 export const login = async (req, res) => {
   try {
     const { username, password } = req.body;
 
     const superAdmin = await SuperAdmin.findOne({ username });
-
-    // if (!superAdmin || !(await bcrypt.compare(password, superAdmin.password))) {
-    //   return res.status(401).send({ error: 'Invalid login credentials' });
-    // }
 
     if (!superAdmin) {
       return res.status(401).send({ error: "Super admin not found" });
@@ -46,6 +43,8 @@ export const getAllAdmins = async (req, res) => {
       password: admin.password.replace(/./g, "*").slice(0, 10) + "...",
       walletBalance: admin.wallet,
     }));
+
+    console.log(adminData);
 
     return res.status(200).json(adminData);
   } catch (error) {
@@ -208,7 +207,7 @@ export const getPercentage = async (req, res) => {
 export const updatePercentage = async (req, res) => {
   try {
     const { percentage } = req.body;
-    if (percentage < 0 ) {
+    if (percentage < 0) {
       return res
         .status(400)
         .json({ message: "Percentage must be greater than 0" });
@@ -322,6 +321,7 @@ export const setWithdrawalAmount = async (req, res) => {
 export const getAdminWinnings = async (req, res) => {
   try {
     const adminId = req.params;
+    console.log(adminId);
 
     // Ensure the requesting admin can only access their own data
     // Uncomment and adjust this check if necessary
@@ -337,6 +337,16 @@ export const getAdminWinnings = async (req, res) => {
       timestamp: -1,
     });
 
+    console.log("winnings ", winnings);
+
+    // If no winnings found, handle that case
+    // if (!winnings.length) {
+    //   return res.status(404).json({
+    //     success: false,
+    //     message: "No winnings found for this admin",
+    //   });
+    // }
+
     res.status(200).json({
       success: true,
       data: winnings,
@@ -349,3 +359,163 @@ export const getAdminWinnings = async (req, res) => {
     });
   }
 };
+
+export const getSuperAdminGameTotalInfo = async (req, res) => {
+  try {
+    const { from, to } = req.query;
+
+    // Fetch the necessary data from the database
+    const { admins, games, adminGameResults } = await getSuperAdminGameData(
+      from,
+      to
+    );
+
+    // Calculate the required metrics for each admin
+    const adminNTPData = await Promise.all(
+      admins.map(async (admin) => {
+        const {
+          totalBetAmount,
+          totalWinAmount,
+          endAmount,
+          commission,
+          totalClaimedAmount,
+          unclaimedAmount,
+          NTP,
+        } = await calculateAdminGameTotals(
+          games.filter((game) =>
+            game.Bets.some((bet) => bet.adminID === admin.adminId)
+          ),
+          adminGameResults.filter((result) =>
+            result.winners.some((winner) => winner.adminId === admin.adminId)
+          ),
+          admin
+        );
+
+        return {
+          adminId: admin.adminId,
+          // totalBetAmount,
+          // totalWinAmount,
+          // endAmount,
+          // commission,
+          // totalClaimedAmount,
+          // unclaimedAmount,
+          NTP,
+        };
+      })
+    );
+
+    // Construct the response
+    return res.status(200).json({
+      success: true,
+      data: adminNTPData,
+    });
+  } catch (error) {
+    console.error("Error retrieving super admin game total info:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Error retrieving super admin game total info",
+      error: error.message,
+    });
+  }
+};
+
+async function getSuperAdminGameData(from, to) {
+  // Set default date range for today
+  const today = new Date();
+  const startOfDay = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate()
+  );
+  const endOfDay = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+    23,
+    59,
+    59,
+    999
+  );
+
+  // Use the provided date range if available, or use today's date
+  const fromDate = from ? new Date(from) : startOfDay;
+  const toDate = to ? new Date(to) : endOfDay;
+
+  // Fetch all the admin data
+  const admins = await Admin.find({}).lean();
+
+  // Fetch all the game data for the given date range
+  const games = await Game.find({
+    createdAt: { $gte: fromDate, $lte: toDate },
+  }).lean();
+
+  // Fetch all the admin game results for the given date range
+  const adminGameResults = await AdminGameResult.find({
+    createdAt: { $gte: fromDate, $lte: toDate },
+  }).lean();
+
+  return { admins, games, adminGameResults };
+}
+
+async function calculateAdminGameTotals(games, adminGameResults, admin) {
+  let totalBetAmount = 0;
+  let totalWinAmount = 0;
+  let totalClaimedAmount = admin.wallet;
+
+  const winnerMultiplier = {
+    1: 10,
+    2: 20,
+    3: 30,
+    4: 40,
+    5: 50,
+    6: 60,
+    7: 70,
+    8: 80,
+    9: 90,
+    10: 100,
+  };
+
+  for (const game of games) {
+    const adminBets = game.Bets.filter((bet) => bet.adminID === admin.adminId);
+    for (const bet of adminBets) {
+      totalBetAmount += bet.card.reduce(
+        (total, card) => total + card.Amount,
+        0
+      );
+    }
+
+    const selectedCard = adminGameResults.find(
+      (result) => result.gameId === game.GameId
+    );
+    if (selectedCard) {
+      const winningMultiplier =
+        winnerMultiplier[selectedCard.winningCard.multiplier] || 1;
+      const winningCardId = selectedCard.winningCard.cardId;
+
+      for (const bet of game.Bets) {
+        if (bet.adminID === admin.adminId) {
+          for (const card of bet.card) {
+            if (card.cardNo === winningCardId) {
+              totalWinAmount += card.Amount * winningMultiplier;
+            }
+          }
+        }
+      }
+    }
+  }
+
+  const endAmount = totalBetAmount - totalWinAmount;
+  const commission = totalBetAmount * 0.05;
+  const unclaimedAmount = totalWinAmount - totalClaimedAmount;
+  const NTP = endAmount - commission;
+
+  return {
+    totalBetAmount,
+    totalWinAmount,
+    endAmount,
+    commission,
+    totalClaimedAmount,
+    unclaimedAmount,
+    NTP,
+  };
+}

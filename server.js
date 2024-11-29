@@ -11,6 +11,7 @@ import cors from 'cors';
 // import Timer from './models/Timer';
 import superAdminRoutes from './routes/superAdminRoutes.js';
 import adminRoutes from './routes/adminRoutes.js';
+import subAdminRoutes from './routes/subAdminRoutes.js'
 
 dotenv.config();
 
@@ -31,6 +32,7 @@ app.use(express.urlencoded({ extended: true }));
 // // Define routes
 app.use("/api/super-admin", superAdminRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/sub-admin", subAdminRoutes);
 app.use('/api/cards', cardRoutes);
 
 const PORT = process.env.PORT || 5000;

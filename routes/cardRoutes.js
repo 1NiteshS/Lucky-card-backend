@@ -15,9 +15,10 @@ import {
   processAllSelectedCards,
   placeAutomatedBet,
   getAdminLatestBets,
-  deleteBetByTicketId
+  deleteBetByTicketId,
 } from "../controllers/cardController.js";
-import { authAdmin } from "../middleware/auth.js";
+import { authAdmin, authSubAdmin } from "../middleware/auth.js";
+import  PercentageMode  from "../models/PercentageMode.js"
 
 const router = express.Router();
 
@@ -29,6 +30,9 @@ router.get("/calculate", calculateAmounts);
 
 // Route to place a bet
 router.post("/bet/:adminId", authAdmin, placeBet);
+
+// Route for SubAdmin to place a bet
+router.post('/bet/subadmin/:adminId', authSubAdmin, placeBet);
 
 // In your routes file
 router.get('/getBets/:adminId', getAdminLatestBets);
@@ -62,5 +66,41 @@ router.post("/save-selected-cards", processAllSelectedCards);
 // router.get("/recent-winning-cards", getAllRecentWinningCards);
 
 router.get("/recent-winning-cards", getLatestSelectedCards);
+
+// Get current percentage mode
+router.get('/percentage-mode', async (req, res) => {
+  try {
+    let mode = await PercentageMode.findOne();
+    if (!mode) {
+      mode = await PercentageMode.create({
+        mode: 'automatic'
+      });
+    }
+    res.json(mode);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update percentage mode
+router.put('/percentage-mode', async (req, res) => {
+  try {
+    const { mode } = req.body;
+    let percentageMode = await PercentageMode.findOne();
+    
+    if (!percentageMode) {
+      percentageMode = new PercentageMode();
+    }
+    
+    if (mode) percentageMode.mode = mode;
+    percentageMode.updatedAt = new Date();
+    
+    await percentageMode.save();
+    res.json(percentageMode);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 
 export default router;

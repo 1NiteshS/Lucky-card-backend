@@ -44,7 +44,9 @@ const userCountSchema = new mongoose.Schema({
     type: Number,
     default: 0
   }
-}, { timestamps: true });
+}, 
+// { timestamps: true }
+);
 
 // Method to initialize the first record if no record exists
 userCountSchema.statics.initializeIfEmpty = async function() {

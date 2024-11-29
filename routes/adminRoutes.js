@@ -12,7 +12,11 @@ import {
   updatePassword,
   postAllAdminWinnings,
   getAdminWinnings,
+  getAdminGameTotalInfo,
   logout,
+  transferMoney,
+  setCommission,
+  getSubAdminByAdmin
 } from "../controllers/adminController.js";
 import { authAdmin, authSuperAdmin } from "../middleware/auth.js";
 import {
@@ -45,6 +49,14 @@ router.get("/search-result", searchAll);
 router.get("/total-winnings/:adminId", authAdmin, getTotalWinnings);
 
 // Claim all winnings for an admin
-router.post("/claim-all/:adminId", authAdmin, claimAllWinnings);
+router.post("/claim-all/:adminId", claimAllWinnings);
+
+router.get("/game-total-info/:adminId", getAdminGameTotalInfo);
+
+router.post("/transfer-money", transferMoney);
+
+router.post("/set-commission", setCommission);
+
+router.get("/subadmins/:adminId", getSubAdminByAdmin);
 
 export default router;

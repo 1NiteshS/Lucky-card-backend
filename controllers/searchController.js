@@ -1,5 +1,3 @@
-// const searchTicket = require("./cardController");
-
 import { searchTickets } from "./cardController.js";
 
 

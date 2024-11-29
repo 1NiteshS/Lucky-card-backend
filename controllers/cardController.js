@@ -6,7 +6,9 @@ import { calculateAndStoreAdminWinnings } from "./adminController.js";
 import AdminChoice from "../models/AdminChoice.js";
 import BetPercentage from "../models/BetPercentage.js";
 import RecentWinningCard from "../models/recentWinningCard.js";
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from "uuid";
+import SubAdmin from '../models/SubAdmin.js';
+import  PercentageMode  from "../models/PercentageMode.js"
 
 export const searchTickets = async (searchTerm) => {
   try {
@@ -71,6 +73,34 @@ const cardNumbers = {
   A010: "Kspade",
   A011: "Kdiamond",
   A012: "Kclub",
+};
+
+// Alternative version using object with weighted probabilities
+const processBetsWithDynamicPercentageWeighted = () => {
+  const percentageConfig = {
+    50: 40,  // 40% chance
+    70: 30,  // 30% chance
+    80: 15,  // 15% chance
+    90: 10,  // 10% chance
+    120: 5    // 5% chance
+  };
+  
+  // Convert percentageConfig to array for weighted random selection
+  const entries = Object.entries(percentageConfig);
+  const weights = entries.map(([_, weight]) => weight);
+  const totalWeight = weights.reduce((sum, weight) => sum + weight, 0);
+  
+  let random = Math.random() * totalWeight;
+  
+  for (const [percentage, weight] of entries) {
+    random -= weight;
+    if (random <= 0) {
+      return Number(percentage);
+    }
+  }
+  
+  // Fallback to first percentage if something goes wrong
+  return Number(entries[0][0]);
 };
 
 // Get all cards on frontend
@@ -187,7 +217,11 @@ export const calculateAmounts = async () => {
     }
 
     let { multipliedArray, percAmount, type } = processedData;
-    const selectedCard = await selectRandomAmount(multipliedArray, percAmount, type);
+    const selectedCard = await selectRandomAmount(
+      multipliedArray,
+      percAmount,
+      type
+    );
 
     if (!selectedCard || !selectedCard.randomEntry) {
       throw new Error("No valid card selected");
@@ -211,8 +245,7 @@ export const calculateAmounts = async () => {
       "A012",
     ];
     const selectedCardNo = cardNumbers[randomEntry.index];
-    console.log('selectedCardNo', randomEntry);
-    
+
     if (!selectedCardNo) {
       throw new Error("Invalid card index");
     }
@@ -224,7 +257,7 @@ export const calculateAmounts = async () => {
     };
 
     await saveSelectedCard(WinningCard, latestGame.GameId);
-    if(WinningCard.amount == 0){
+    if (WinningCard.amount == 0) {
       return {
         message: "Amounts calculated successfully",
         WinningCard,
@@ -232,7 +265,7 @@ export const calculateAmounts = async () => {
     }
     const adminResults = await calculateAdminResults(latestGame, WinningCard);
     await getAdminGameResults(latestGame.GameId, adminResults);
-    // await processAllSelectedCards();   
+    // await processAllSelectedCards();
     await calculateAndStoreAdminWinnings(latestGame.GameId);
 
     console.log("adminResults", adminResults);
@@ -358,8 +391,15 @@ const processGameBets = async (bets) => {
     9: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     10: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   };
-
-  let perc = await processBetsWithDynamicPercentage();
+    // Get current percentage mode from database
+    const percentageMode = await PercentageMode.findOne();
+    let perc;
+  
+    if (!percentageMode || percentageMode.mode === 'automatic') {
+      perc = await processBetsWithDynamicPercentageWeighted();
+    } else {
+      perc = await processBetsWithDynamicPercentage();
+    } 
 
   // const percAmount = totalAmount * 0.85;
   const percAmount = totalAmount * (perc / 100);
@@ -634,70 +674,39 @@ const processGameBetsWithZeroRandomAndMin = async (bets) => {
 };
 
 async function selectRandomAmount(validAmounts, percAmount, type) {
+  console.log(validAmounts, percAmount, type);
   
-  // if (type === "processGameBets") {
-  //   let allEntries = [];
+ if (type === "processGameBets") {
+    let allEntries = [];
+    console.log('A');
+    
 
-  //   // Collect all valid entries with their values
-  //   for (let key in validAmounts) {
-  //       if (Array.isArray(validAmounts[key])) {
-  //           validAmounts[key].forEach((value, index) => {
-  //               if (value <= percAmount) {
-  //                   allEntries.push({ key, index, value });
-  //               }
-  //           });
-  //       }
-  //   }
-
-  //   // Sort entries by value in descending order (highest to lowest)
-  //   allEntries.sort((a, b) => b.value - a.value);
-
-  //   // Get top 3 entries
-  //   const topThreeEntries = allEntries.slice(0, 3);
-
-  //   if (topThreeEntries.length === 0) {
-  //       console.log("No eligible entries found. Returning null.");
-  //       return null;
-  //   }
-
-  //   // Select random entry from top 3
-  //   const randomEntry = topThreeEntries[Math.floor(Math.random() * topThreeEntries.length)];
-
-  //   return { randomEntry };
-  // }
-
-  if (type === "processGameBets") {
-    // Existing logic for processGameBets
-
-    let eligibleEntries = [];
-    let zeroEntries = [];
-
+    // Collect all valid entries with their values
     for (let key in validAmounts) {
-      if (Array.isArray(validAmounts[key])) {
-        validAmounts[key].forEach((value, index) => {
-          if (value !== 0 && value <= percAmount) {
-            eligibleEntries.push({ key, index, value });
-          } else if (value === 0) {
-            zeroEntries.push({ key, index, value });
-          }
-        });
-      }
+        if (Array.isArray(validAmounts[key])) {
+            validAmounts[key].forEach((value, index) => {
+                if (value <= percAmount) {
+                    allEntries.push({ key, index, value });
+                }
+            });
+        }
     }
 
-    let randomEntry;
+    // Sort entries by value in descending order (highest to lowest)
+    allEntries.sort((a, b) => b.value - a.value);
 
-    if (eligibleEntries.length > 0) {
-      randomEntry =
-        eligibleEntries[Math.floor(Math.random() * eligibleEntries.length)];
-    } else if (zeroEntries.length > 0) {
-      console.log(
-        "No eligible entries found within percAmount. Selecting a zero entry."
-      );
-      randomEntry = zeroEntries[Math.floor(Math.random() * zeroEntries.length)];
-    } else {
-      console.log("No eligible entries or zero entries found. Returning null.");
-      return null;
+    // Get top 3 entries
+    const topThreeEntries = allEntries.slice(0, 3);
+
+    if (topThreeEntries.length === 0) {
+        console.log("No eligible entries found. Returning null.");
+        return null;
     }
+
+    // Select random entry from top 3
+    const randomEntry = topThreeEntries[Math.floor(Math.random() * topThreeEntries.length)];
+    console.log('randomEntry', randomEntry);
+    
 
     return { randomEntry };
   } else if (type === "processGameBetsWithMinAmount") {
@@ -756,43 +765,40 @@ async function selectRandomAmount(validAmounts, percAmount, type) {
   } else {
     const entries = [
       { key: '1', index: 1, value: 0 },
+      { key: '1', index: 2, value: 0 },
+      { key: '1', index: 3, value: 0 },
+      { key: '1', index: 4, value: 0 },
+      { key: '1', index: 5, value: 0 },
+      { key: '1', index: 6, value: 0 },
+      { key: '1', index: 7, value: 0 },
+      { key: '1', index: 8, value: 0 },
+      { key: '2', index: 9, value: 0 },
+      { key: '10', index: 10, value: 0 },
+      { key: '1', index: 11, value: 0 },
       { key: '2', index: 2, value: 0 },
-      { key: '3', index: 3, value: 0 },
-      { key: '4', index: 5, value: 0 },
-      { key: '5', index: 1, value: 0 },
-      { key: '6', index: 2, value: 0 },
-      { key: '7', index: 3, value: 0 },
-      { key: '8', index: 1, value: 0 },
-      { key: '9', index: 2, value: 0 },
-      { key: '10', index: 2, value: 0 },
-      { key: '11', index: 2, value: 0 },
-      { key: '12', index: 3, value: 0 },
       { key: '1', index: 1, value: 0 },
-      { key: '2', index: 4, value: 0 },
+      { key: '1', index: 2, value: 0 },
       { key: '3', index: 3, value: 0 },
-      { key: '4', index: 5, value: 0 },
-      { key: '5', index: 10, value: 0 },
-      { key: '6', index: 6, value: 0 },
-      { key: '7', index: 2, value: 0 },
-      { key: '8', index: 2, value: 0 },
-      { key: '9', index: 8, value: 0 },
-      { key: '10', index: 2, value: 0 },
-      { key: '11', index: 2, value: 0 },
-      { key: '12', index: 4, value: 0 },
+      { key: '1', index: 4, value: 0 },
+      { key: '1', index: 5, value: 0 },
+      { key: '1', index: 6, value: 0 },
+      { key: '1', index: 7, value: 0 },
+      { key: '2', index: 8, value: 0 },
+      { key: '1', index: 9, value: 0 },
+      { key: '1', index: 10, value: 0 },
+      { key: '1', index: 11, value: 0 },
+      { key: '1', index: 2, value: 0 },
       { key: '1', index: 1, value: 0 },
-      { key: '2', index: 1, value: 0 },
-      { key: '3', index: 2, value: 0 },
-      { key: '4', index: 3, value: 0 },
-      // Add more entries as needed   
+      { key: '1', index: 2, value: 0 },
+      { key: '1', index: 3, value: 0 },
+      { key: '4', index: 4, value: 0 },
+      // Add more entries as needed
     ];
-  
+
     // Generate a random index
     const randomIndex = Math.floor(Math.random() * entries.length);
-    let randomEntry =   entries[randomIndex];
+    let randomEntry = entries[randomIndex];
 
-    console.log('randomEntry', randomEntry);
-    
-    
     return { randomEntry };
     // return null;
   }
@@ -809,11 +815,13 @@ const saveSelectedCard = async (selectedAmount, gameId) => {
   // const drowTime = {
   //   drowTime: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
   // }
-  const drowTime = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
+  const drowTime = new Date().toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+  });
   // const drowTime = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
 
   // console.log(drowTime);
-  
+
   const selectedCardData = {
     gameId: gameId,
     cardId: selectedAmount.cardId,
@@ -821,7 +829,7 @@ const saveSelectedCard = async (selectedAmount, gameId) => {
     amount: selectedAmount.amount,
     adminID: selectedAmount.adminID,
     ticketsID: selectedAmount.ticketsID,
-    drowTime: drowTime
+    drowTime: drowTime,
   };
 
   const selectedCard = new SelectedCard(selectedCardData);
@@ -885,16 +893,104 @@ export const resetTimer = async () => {
 };
 
 // Assuming this is in your cardController.js file
+// export const placeBet = async (req, res) => {
+//   const { ticketsID, cards, GameId } = req.body; // Accept cards as an array in the request body
+//   const { adminId } = req.params; // Get adminId from URL params
+
+//   try {
+//     // Fetch the admin details using admin ID
+//     const admin = await Admin.findOne({ adminId: adminId });
+
+//     if (!admin) {
+//       return res.status(404).json({ message: "Admin not found!" });
+//     }
+
+//     // Calculate the total bet amount from all the cards
+//     let totalAmount = 0;
+//     if (Array.isArray(cards)) {
+//       cards.forEach((card) => {
+//         if (card.Amount) {
+//           totalAmount += card.Amount; // Accumulate the amount from each card
+//         }
+//       });
+//     }
+
+//     // Check if admin has sufficient balance
+//     if (admin.wallet < totalAmount) {
+//       return res
+//         .status(400)
+//         .json({ message: "Insufficient balance in wallet!" });
+//     }
+
+//     // Check if there is an active game with the given GameId
+//     const activeGame = await Game.findOne({ GameId: GameId });
+
+//     if (!activeGame) {
+//       return res.status(404).json({ message: "Game not found!" });
+//     }
+
+//     // Create a new bet entry (gameDetails) to be pushed into the Bets array
+//     const newBet = {
+//       adminID: admin.adminId, // Use adminId from Admin model
+//       ticketsID: ticketsID,
+//       card: [], // Initialize an empty array for cards
+//       ticketTime: new Date().toLocaleString("en-IN", {
+//         timeZone: "Asia/Kolkata",
+//       }), // Indian Standard Time (IST)
+//     };
+
+//     // Loop through the cards array and add each card to the newBet
+//     if (Array.isArray(cards)) {
+//       cards.forEach((card) => {
+//         if (card.cardNo && card.Amount) {
+//           // Ensure cardNo and Amount are provided
+//           newBet.card.push({
+//             cardNo: card.cardNo,
+//             Amount: card.Amount,
+//           });
+//         }
+//       });
+//     }
+
+//     // Add the new bet to the Bets array of the game
+//     activeGame.Bets.push(newBet);
+
+//     // Deduct the total bet amount from admin's wallet
+//     admin.wallet -= totalAmount;
+
+//     // Save the updated game and admin wallet
+//     await Promise.all([activeGame.save(), admin.save()]);
+
+//     return res.status(200).json({
+//       message: "Game data successfully uploaded and bet placed successfully!",
+//       game: activeGame,
+//       updatedWalletBalance: admin.wallet,
+//     });
+//   } catch (error) {
+//     console.error("Error uploading game data:", error);
+//     return res
+//       .status(500)
+//       .json({ message: "Failed to upload game data.", error: error.message });
+//   }
+// };
+
+// New
 export const placeBet = async (req, res) => {
-  const { ticketsID, cards, GameId } = req.body; // Accept cards as an array in the request body
+  const { ticketsID, cards, GameId } = req.body;
   const { adminId } = req.params; // Get adminId from URL params
 
   try {
-    // Fetch the admin details using admin ID
-    const admin = await Admin.findOne({ adminId: adminId });
+    let user;
+    if (req.admin) {
+      // If the user is admin
+      user = req.admin;  // Admin details from middleware
+    } else if (req.subAdmin) {
+      // If the user is subadmin
+      user = req.subAdmin;  // SubAdmin details from middleware
+    }
 
-    if (!admin) {
-      return res.status(404).json({ message: "Admin not found!" });
+    if (!user) {
+      return res.status(404).json({ message: 'User not authenticated!' });
     }
 
     // Calculate the total bet amount from all the cards
@@ -907,26 +1003,23 @@ export const placeBet = async (req, res) => {
       });
     }
 
-    // Check if admin has sufficient balance
-    if (admin.wallet < totalAmount) {
-      return res
-        .status(400)
-        .json({ message: "Insufficient balance in wallet!" });
+    // Check if user has sufficient balance
+    if (user.wallet < totalAmount) {
+      return res.status(400).json({ message: 'Insufficient balance in wallet!' });
     }
 
     // Check if there is an active game with the given GameId
     const activeGame = await Game.findOne({ GameId: GameId });
-
     if (!activeGame) {
-      return res.status(404).json({ message: "Game not found!" });
+      return res.status(404).json({ message: 'Game not found!' });
     }
 
     // Create a new bet entry (gameDetails) to be pushed into the Bets array
     const newBet = {
-      adminID: admin.adminId, // Use adminId from Admin model
+      userId: user.adminId || user.subAdminId,  // Identify the user by adminId or subAdminId
       ticketsID: ticketsID,
-      card: [], // Initialize an empty array for cards
-      ticketTime: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })  // Indian Standard Time (IST)
+      card: [],
+      ticketTime: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }), // Indian Standard Time (IST)
     };
 
     // Loop through the cards array and add each card to the newBet
@@ -945,22 +1038,20 @@ export const placeBet = async (req, res) => {
     // Add the new bet to the Bets array of the game
     activeGame.Bets.push(newBet);
 
-    // Deduct the total bet amount from admin's wallet
-    admin.wallet -= totalAmount;
+    // Deduct the total bet amount from user's wallet
+    user.wallet -= totalAmount;
 
-    // Save the updated game and admin wallet
-    await Promise.all([activeGame.save(), admin.save()]);
+    // Save the updated game and user wallet
+    await Promise.all([activeGame.save(), user.save()]);
 
     return res.status(200).json({
       message: "Game data successfully uploaded and bet placed successfully!",
       game: activeGame,
-      updatedWalletBalance: admin.wallet,
+      updatedWalletBalance: user.wallet,
     });
   } catch (error) {
     console.error("Error uploading game data:", error);
-    return res
-      .status(500)
-      .json({ message: "Failed to upload game data.", error: error.message });
+    return res.status(500).json({ message: "Failed to upload game data.", error: error.message });
   }
 };
 
@@ -1025,7 +1116,7 @@ export const getAdminLatestBets = async (req, res) => {
 
 export const placeAutomatedBet = async (req, res) => {
   // const { GameId, ticketsID } = req.body;
-  const adminId = "a471e9c4-8fc5-4396-8a6e-268129c46503"; // Hardcoded admin ID
+  const adminId = "056233a7-d02a-4fe8-87df-6ccfd9983955"; // Hardcoded admin ID
 
   try {
     // Fetch the admin details using admin ID
@@ -1035,9 +1126,7 @@ export const placeAutomatedBet = async (req, res) => {
       return res.status(404).json({ message: "Admin not found!" });
     }
 
-    // Check if there is an active game with the given GameId
-    // const activeGame = await Game.findOne({ GameId: GameId });
-     // Create a new game if none exists
+    // Create a new game if none exists
     let activeGame = await Game.findOne({}, {}, { sort: { createdAt: -1 } });
     if (!activeGame) {
       activeGame = await Game.create({});
@@ -1050,7 +1139,9 @@ export const placeAutomatedBet = async (req, res) => {
       adminID: admin.adminId,
       ticketsID: ticketsID,
       card: [],
-      ticketTime: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })  // Indian Standard Time (IST)
+      ticketTime: new Date().toLocaleString("en-IN", {
+        timeZone: "Asia/Kolkata",
+      }), // Indian Standard Time (IST)
     };
 
     // Loop through the card numbers and create a bet for each
@@ -1103,9 +1194,10 @@ export const placeAutomatedBet = async (req, res) => {
     };
   } catch (error) {
     console.error("Error placing automated bet:", error);
-    return res
-      .status(500)
-      .json({ message: "Failed to place automated bet.", error: error.message });
+    return res.status(500).json({
+      message: "Failed to place automated bet.",
+      error: error.message,
+    });
   }
 };
 
@@ -1170,8 +1262,6 @@ export const deleteBetByTicketId = async (req, res) => {
   }
 };
 
-
-
 const calculateAdminResults = async (game, winningCard) => {
   const winnerMultiplier = {
     1: 10,
@@ -1209,8 +1299,7 @@ const calculateAdminResults = async (game, winningCard) => {
         const multiplier = winnerMultiplier[winningCard.multiplier] || 1;
         adminResult.winAmount = card.Amount * multiplier;
         adminResult.ticketsID = bet.ticketsID;
-        adminResult.ticketTime = bet.ticketTime,
-        adminResult.status = "win"; // Update status if it's a winning card
+        (adminResult.ticketTime = bet.ticketTime), (adminResult.status = "win"); // Update status if it's a winning card
       }
     }
     if (adminResult.status === "win") {
@@ -1234,7 +1323,6 @@ export const getAdminGameResults = async (gameId, adminResults) => {
     if (!selectedCard) {
       return { message: "Selected card not found for this game" };
     }
-    
 
     // Save results to MongoDB
     const newAdminGameResult = new AdminGameResult({
@@ -1243,7 +1331,7 @@ export const getAdminGameResults = async (gameId, adminResults) => {
         cardId: selectedCard.cardId,
         multiplier: selectedCard.multiplier,
         amount: selectedCard.amount,
-        Drowtime: selectedCard.drowTime
+        Drowtime: selectedCard.drowTime,
       },
       winners: adminResults.winners,
       losers: adminResults.losers,
@@ -1402,7 +1490,7 @@ export const claimWinnings = async (req, res) => {
   }
 };
 
-export const processAllSelectedCards = async (req, res) => {  
+export const processAllSelectedCards = async (req, res) => {
   try {
     // Fetch all unique gameIds from SelectedCard collection
     const uniqueGameIds = await SelectedCard.distinct("gameId");
@@ -1431,8 +1519,6 @@ export const processAllSelectedCards = async (req, res) => {
           })
         );
 
-        // Update game status
-        // const currentGame = await Game.findOne({ GameId: gameId });
         // Calculate and store admin winnings
         await calculateAndStoreAdminWinnings(gameId);
         // Store recent winning card and keep only latest 10
@@ -1443,7 +1529,7 @@ export const processAllSelectedCards = async (req, res) => {
         const recentWinningCard = await RecentWinningCard.findOne({
           gameId,
         }).sort({ createdAt: -1 });
-        
+
         return {
           gameId,
           winningCard: recentWinningCard,
@@ -1460,41 +1546,6 @@ export const processAllSelectedCards = async (req, res) => {
     });
   }
 };
-
-// Function to save the latest winning card and keep only the latest 10
-async function saveLatest10WinningCards(gameId, winningCard) {
-  try {
-    // Create the new winning card document
-    const newWinningCard = new RecentWinningCard({
-      gameId: gameId,
-      cardId: winningCard.cardId,
-      amount: winningCard.amount,
-      multiplier: parseFloat(winningCard.multiplier),
-    });
-
-    // Save the new winning card document
-    await newWinningCard.save();
-
-    // Check the total count of documents
-    const totalCount = await RecentWinningCard.countDocuments();
-
-    // If there are more than 5 documents, delete the oldest ones
-    if (totalCount > 5) {
-      // Find the oldest documents (sorted by createdAt ascending)
-      const oldestDocuments = await RecentWinningCard.find()
-        .sort({ createdAt: 1 })
-        .limit(totalCount - 5);
-
-      // Extract the IDs of the oldest documents to delete
-      const idsToDelete = oldestDocuments.map((a) => a._id);
-      // Delete the oldest documents
-      await RecentWinningCard.deleteMany({ _id: { $in: idsToDelete } });
-    }
-  } catch (error) {
-    console.error("Error in saveLatest5WinningCards:", error);
-    throw error;
-  }
-}
 
 // Fetch all recent winning cards recent created limit 5
 export const getAllRecentWinningCards = async (req, res) => {
@@ -1551,10 +1602,6 @@ export const getAdminGameResultsForAdmin = async (req, res) => {
       };
     }
 
-    // if (ticketsID) {
-    //   query["winningCard.ticketsID"] = ticketsID;
-    // }
-
     const adminGameResults = await AdminGameResult.find(query).lean();
 
     if (adminGameResults.length === 0) {
@@ -1562,31 +1609,38 @@ export const getAdminGameResultsForAdmin = async (req, res) => {
         success: false,
         message: "No game results found for this admin",
       });
-    } 
-    
-    const gameData = await Game.findOne()
-      .sort({ _id: -1})
-
-    const bets =  gameData.Bets
+    }
 
     const transformedResults = adminGameResults.map((result) => {
+      // Filter winners and losers for the specific adminId before combining
+      const filteredWinners = (result.winners || []).filter(
+        (winner) => winner.adminId === adminId
+      );
 
-    const adminresult = [...(result.winners || []), ...(result.losers || [])];
-    
-    
+      const filteredLosers = (result.losers || []).filter(
+        (loser) => loser.adminId === adminId
+      );
+
+      // Combine the filtered winners and losers
+      const adminresult = [...filteredWinners, ...filteredLosers];
+
       return {
         _id: result._id,
         gameId: result.gameId,
         winningCard: result.winningCard,
-        adminresult: adminresult  // Now each adminresult has the ticketTime added
+        adminresult: adminresult,
       };
     });
-    
+
+    // Filter out any games where the admin had no results
+    const finalResults = transformedResults.filter(
+      (result) => result.adminresult.length > 0
+    );
 
     return res.status(200).json({
       success: true,
       message: "Admin game results retrieved successfully",
-      data: transformedResults,
+      data: finalResults,
     });
   } catch (error) {
     console.error("Error retrieving admin game results:", error);
@@ -1667,11 +1721,90 @@ export const getTotalWinnings = async (req, res) => {
 };
 
 // Claim all winnings for an admin
+// export const claimAllWinnings = async (req, res) => {
+//   try {
+//     const { adminId } = req.params;
+
+//     // Check if authenticated admin matches the requested adminId
+//     if (req.admin.adminId !== adminId) {
+//       return res.status(403).json({
+//         success: false,
+//         message: "Unauthorized access",
+//       });
+//     }
+
+//     // Find the admin
+//     const admin = await Admin.findOne({ adminId });
+//     if (!admin) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Admin not found",
+//       });
+//     }
+
+//     // Find all game results with unclaimed winnings for this admin
+//     const gameResults = await AdminGameResult.find({
+//       "winners.adminId": adminId,
+//       "winners.status": "win",
+//     });
+
+//     let totalClaimedAmount = 0;
+//     const claimedGames = [];
+
+//     // Process each game result
+//     for (const game of gameResults) {
+//       const adminWinners = game.winners.filter(
+//         (winner) => winner.adminId === adminId && winner.status === "win"
+//       );
+
+//       for (const winner of adminWinners) {
+//         // Update winner status to claimed
+//         winner.status = "claimed";
+//         totalClaimedAmount += winner.winAmount;
+
+//         claimedGames.push({
+//           gameId: game.gameId,
+//           ticketsID: winner.ticketsID,
+//           winAmount: winner.winAmount,
+//         });
+//       }
+
+//       await game.save();
+//     }
+
+//     // Update admin's wallet with total claimed amount
+//     if (totalClaimedAmount > 0) {
+//       admin.wallet += totalClaimedAmount;
+//       await admin.save();
+//     }
+
+//     return res.status(200).json({
+//       success: true,
+//       message: "All winnings claimed successfully",
+//       data: {
+//         adminId: admin.adminId,
+//         totalClaimedAmount,
+//         claimedGames,
+//         newWalletBalance: admin.wallet,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error claiming all winnings:", error);
+//     return res.status(500).json({
+//       success: false,
+//       message: "Error claiming all winnings",
+//       error: error.message,
+//     });
+//   }
+// };
+
+// New
 export const claimAllWinnings = async (req, res) => {
   try {
     const { adminId } = req.params;
+    const { userType } = req.body; // userType can be "admin" or "subadmin"
 
-    // Check if authenticated admin matches the requested adminId
+    // Check if authenticated user matches the requested adminId
     if (req.admin.adminId !== adminId) {
       return res.status(403).json({
         success: false,
@@ -1679,59 +1812,114 @@ export const claimAllWinnings = async (req, res) => {
       });
     }
 
-    // Find the admin
-    const admin = await Admin.findOne({ adminId });
-    if (!admin) {
-      return res.status(404).json({
-        success: false,
-        message: "Admin not found",
-      });
-    }
-
-    // Find all game results with unclaimed winnings for this admin
-    const gameResults = await AdminGameResult.find({
-      "winners.adminId": adminId,
-      "winners.status": "win",
-    });
-
+    let user;
     let totalClaimedAmount = 0;
     const claimedGames = [];
 
-    // Process each game result
-    for (const game of gameResults) {
-      const adminWinners = game.winners.filter(
-        (winner) => winner.adminId === adminId && winner.status === "win"
-      );
-
-      for (const winner of adminWinners) {
-        // Update winner status to claimed
-        winner.status = "claimed";
-        totalClaimedAmount += winner.winAmount;
-
-        claimedGames.push({
-          gameId: game.gameId,
-          ticketsID: winner.ticketsID,
-          winAmount: winner.winAmount,
+    if (userType === "admin") {
+      // Find the admin
+      const admin = await Admin.findOne({ adminId });
+      if (!admin) {
+        return res.status(404).json({
+          success: false,
+          message: "Admin not found",
         });
       }
 
-      await game.save();
-    }
+      // Find all game results with unclaimed winnings for this admin
+      const gameResults = await AdminGameResult.find({
+        "winners.adminId": adminId,
+        "winners.status": "win",
+      });
 
-    // Update admin's wallet with total claimed amount
-    if (totalClaimedAmount > 0) {
-      admin.wallet += totalClaimedAmount;
-      await admin.save();
+      // Process each game result
+      for (const game of gameResults) {
+        const adminWinners = game.winners.filter(
+          (winner) => winner.adminId === adminId && winner.status === "win"
+        );
+
+        for (const winner of adminWinners) {
+          // Update winner status to claimed
+          winner.status = "claimed";
+          totalClaimedAmount += winner.winAmount;
+
+          claimedGames.push({
+            gameId: game.gameId,
+            ticketsID: winner.ticketsID,
+            winAmount: winner.winAmount,
+          });
+        }
+
+        await game.save();
+      }
+
+      // Update admin's wallet with total claimed amount
+      if (totalClaimedAmount > 0) {
+        admin.wallet += totalClaimedAmount;
+        await admin.save();
+      }
+
+      user = admin; // Set user to admin
+
+    } else if (userType === "subadmin") {
+      // Find the subadmin
+      const subAdmin = await SubAdmin.findOne({ subAdminId: adminId });
+      if (!subAdmin) {
+        return res.status(404).json({
+          success: false,
+          message: "SubAdmin not found",
+        });
+      }
+
+      // Find all game results with unclaimed winnings for the subadmin
+      const gameResults = await AdminGameResult.find({
+        "winners.adminId": subAdmin.createdBy, // adminId of the admin who created the subadmin
+        "winners.status": "win",
+      });
+
+      // Process each game result
+      for (const game of gameResults) {
+        const subAdminWinners = game.winners.filter(
+          (winner) => winner.adminId === subAdmin.createdBy && winner.status === "win"
+        );
+
+        for (const winner of subAdminWinners) {
+          // Update winner status to claimed
+          winner.status = "claimed";
+          totalClaimedAmount += winner.winAmount;
+
+          claimedGames.push({
+            gameId: game.gameId,
+            ticketsID: winner.ticketsID,
+            winAmount: winner.winAmount,
+          });
+        }
+
+        await game.save();
+      }
+
+      // Update subadmin's wallet with total claimed amount
+      if (totalClaimedAmount > 0) {
+        subAdmin.wallet += totalClaimedAmount;
+        await subAdmin.save();
+      }
+
+      user = subAdmin; // Set user to subadmin
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user type",
+      });
     }
 
     return res.status(200).json({
       success: true,
-      message: "All winnings claimed successfully",
+      message: `${userType.charAt(0).toUpperCase() + userType.slice(1)} winnings claimed successfully`,
       data: {
-        adminId: admin.adminId,
+        userId: user.subAdminId || user.adminId, // Return the user ID based on type
         totalClaimedAmount,
         claimedGames,
-        newWalletBalance: admin.wallet,
+        newWalletBalance: user.wallet,
       },
     });
   } catch (error) {
@@ -1743,6 +1931,7 @@ export const claimAllWinnings = async (req, res) => {
     });
   }
 };
+
 
 // Controller function to fetch latest 10 selected cards
 export const getLatestSelectedCards = async (req, res) => {
