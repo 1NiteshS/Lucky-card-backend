@@ -9,6 +9,10 @@ import AdminWinnings from "../models/AdminWinnings.js";
 import WalletTransaction from "../models/WalletTransaction.js";
 import AdminGameResult from "../models/AdminGameResult.js";
 
+//New
+import SubAdmin from '../models/SubAdmin.js';
+
+
 export const login = async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -519,3 +523,64 @@ async function calculateAdminGameTotals(games, adminGameResults, admin) {
     NTP,
   };
 }
+
+// New
+export const getAllSubAdmins = async (req, res) => {
+  try {
+      // Using aggregation to join SubAdmin with Admin collection
+      const subAdmins = await SubAdmin.aggregate([
+          {
+              $lookup: {
+                  from: 'admins', // Collection name for Admin model
+                  localField: 'createdBy',
+                  foreignField: 'adminId',
+                  as: 'creatorAdmin'
+              }
+          },
+          {
+              $unwind: '$creatorAdmin'
+          },
+          {
+              $project: {
+                  name: 1,
+                  email: 1,
+                  subAdminId: 1,
+                  type: 1,
+                  isVerified: 1,
+                  wallet: 1,
+                  isBlocked: 1,
+                  ked: 1,
+                  isLoggedIn: 1,
+                  commission: 1,
+                  createdAt: 1,
+                  createdBy: 1,
+                  'creatorAdmin.name': 1,
+                  'creatorAdmin.email': 1,
+                  'creatorAdmin.adminId': 1
+              }
+          }
+      ]);
+
+      if (!subAdmins.length) {
+          return res.status(404).json({
+              success: false,
+              message: "No SubAdmins found"
+          });
+      }
+
+      return res.status(200).json({
+          success: true,
+          message: "SubAdmins fetched successfully",
+          data: subAdmins,
+          total: subAdmins.length
+      });
+
+  } catch (error) {
+      console.error("Error in getAllSubAdmins:", error);
+      return res.status(500).json({
+          success: false,
+          message: "Internal server error",
+          error: error.message
+      });
+  }
+};

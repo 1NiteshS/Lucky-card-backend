@@ -14,6 +14,7 @@ import {
   getWalletHistory,
   getAdminWinnings,
   getSuperAdminGameTotalInfo,
+  getAllSubAdmins,
 } from "../controllers/superAdminController.js";
 import { authSuperAdmin } from "../middleware/auth.js";
 import {
@@ -47,7 +48,10 @@ router.get("/winnings/:adminId", authSuperAdmin, getAdminWinnings);
 
 router.get("/all-admin-ntp", getSuperAdminGameTotalInfo);
 
+// New
 router.get('/userCount', getUserCount);
+
+// New
 router.post('/start-timer', async (req, res) => {
   try {
       const io = getIO(); // Get socket.io instance
@@ -66,6 +70,7 @@ router.post('/start-timer', async (req, res) => {
   }
 });
 
+// New
 router.post('/stop-timer', async (req, res) => {
   try {
       const io = getIO(); // Get socket.io instance
@@ -83,5 +88,8 @@ router.post('/stop-timer', async (req, res) => {
       });
   }
 });
+
+// New
+router.get('/getAllSubAdmins', getAllSubAdmins);
 
 export default router;

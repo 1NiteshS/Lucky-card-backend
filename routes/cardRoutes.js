@@ -18,6 +18,7 @@ import {
   deleteBetByTicketId,
 } from "../controllers/cardController.js";
 import { authAdmin, authSubAdmin } from "../middleware/auth.js";
+//New
 import  PercentageMode  from "../models/PercentageMode.js"
 
 const router = express.Router();
@@ -31,6 +32,7 @@ router.get("/calculate", calculateAmounts);
 // Route to place a bet
 router.post("/bet/:adminId", authAdmin, placeBet);
 
+// New
 // Route for SubAdmin to place a bet
 router.post('/bet/subadmin/:adminId', authSubAdmin, placeBet);
 
@@ -67,6 +69,8 @@ router.post("/save-selected-cards", processAllSelectedCards);
 
 router.get("/recent-winning-cards", getLatestSelectedCards);
 
+
+// New
 // Get current percentage mode
 router.get('/getpercentage-mode', async (req, res) => {
   try {
@@ -82,6 +86,7 @@ router.get('/getpercentage-mode', async (req, res) => {
   }
 });
 
+// New
 // Update percentage mode
 router.put('/percentage-mode', async (req, res) => {
   try {

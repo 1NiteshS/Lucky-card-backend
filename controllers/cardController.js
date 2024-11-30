@@ -7,7 +7,9 @@ import AdminChoice from "../models/AdminChoice.js";
 import BetPercentage from "../models/BetPercentage.js";
 import RecentWinningCard from "../models/recentWinningCard.js";
 import { v4 as uuidv4 } from "uuid";
+// New
 import SubAdmin from '../models/SubAdmin.js';
+//New
 import  PercentageMode  from "../models/PercentageMode.js"
 
 export const searchTickets = async (searchTerm) => {
@@ -75,6 +77,7 @@ const cardNumbers = {
   A012: "Kclub",
 };
 
+// New 
 // Alternative version using object with weighted probabilities
 const processBetsWithDynamicPercentageWeighted = () => {
   const percentageConfig = {
@@ -391,15 +394,15 @@ const processGameBets = async (bets) => {
     9: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     10: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
   };
-    // Get current percentage mode from database
-    const percentageMode = await PercentageMode.findOne();
-    let perc;
-  
-    if (!percentageMode || percentageMode.mode === 'automatic') {
-      perc = await processBetsWithDynamicPercentageWeighted();
-    } else {
-      perc = await processBetsWithDynamicPercentage();
-    } 
+  // Get current percentage mode from database
+  const percentageMode = await PercentageMode.findOne();
+  let perc;
+
+  if (!percentageMode || percentageMode.mode === 'automatic') {
+    perc = await processBetsWithDynamicPercentageWeighted();
+  } else {
+    perc = await processBetsWithDynamicPercentage();
+  } 
 
   // const percAmount = totalAmount * 0.85;
   const percAmount = totalAmount * (perc / 100);

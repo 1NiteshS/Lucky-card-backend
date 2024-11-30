@@ -16,9 +16,10 @@ const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
+// New
 export const create = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, commission } = req.body;
 
     // Check if admin already exists with this email
     const existingAdmin = await Admin.findOne({ email });
@@ -36,6 +37,7 @@ export const create = async (req, res) => {
       name,
       email,
       password: hashedPassword,
+      commission,
       adminId,
     });
 
@@ -48,6 +50,7 @@ export const create = async (req, res) => {
       admin: {
         name: admin.name,
         email: admin.email,
+        commission: admin.commission,
         adminId: admin.adminId,
       },
     });
