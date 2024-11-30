@@ -16,7 +16,8 @@ import {
   logout,
   transferMoney,
   setCommission,
-  getSubAdminByAdmin
+  getSubAdminByAdmin,
+  dashLogin,
 } from "../controllers/adminController.js";
 import { authAdmin, authSuperAdmin } from "../middleware/auth.js";
 import {
@@ -53,10 +54,13 @@ router.post("/claim-all/:adminId", claimAllWinnings);
 
 router.get("/game-total-info/:adminId", getAdminGameTotalInfo);
 
+// New
 router.post("/transfer-money", transferMoney);
-
+// New
 router.post("/set-commission", setCommission);
-
+// New
 router.get("/subadmins/:adminId", getSubAdminByAdmin);
+
+router.post('/dashLogin', dashLogin)
 
 export default router;

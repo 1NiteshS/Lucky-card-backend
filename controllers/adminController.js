@@ -83,6 +83,22 @@ export const verifyOTP = async (req, res) => {
   }
 };
 
+// New
+export const dashLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const admin = await Admin.findOne({ email });
+
+    if (!admin || !(await bcrypt.compare(password, admin.password))) {
+      return res.status(401).send({ error: "Invalid login credentials" });
+    }
+
+    const token = jwt.sign({ _id: admin._id }, process.env.JWT_SECRET);
+    res.send({ token, adminId: admin.adminId });
+  } catch (error) {
+    res.status(400).send(error);
+  }
+};
 
 // New
 export const login = async (req, res) => {
