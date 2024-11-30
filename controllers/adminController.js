@@ -114,6 +114,14 @@ export const login = async (req, res) => {
           });
       }
 
+       // Check if user is already logged in
+      if (admin.isLoggedIn) {
+        return res.status(400).json({
+          success: false,
+          message: 'You are already logged in from another device. Please logout first.'
+        });
+      }
+
       // Check password
       const isPasswordMatch = await bcrypt.compare(password, admin.password);
 

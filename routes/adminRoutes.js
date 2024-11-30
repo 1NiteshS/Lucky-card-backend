@@ -60,7 +60,7 @@ router.post("/transfer-money", transferMoney);
 router.post("/set-commission", setCommission);
 // New
 router.get("/subadmins/:adminId", getSubAdminByAdmin);
-
+// New
 router.post('/dashLogin', dashLogin)
 
 export default router;
