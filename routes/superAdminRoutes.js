@@ -15,6 +15,7 @@ import {
   getAdminWinnings,
   getSuperAdminGameTotalInfo,
   getAllSubAdmins,
+  setAdminCommission
 } from "../controllers/superAdminController.js";
 import { authSuperAdmin } from "../middleware/auth.js";
 import {
@@ -91,5 +92,8 @@ router.post('/stop-timer', async (req, res) => {
 
 // New
 router.get('/getAllSubAdmins', getAllSubAdmins);
+
+// New
+router.post('/setAdminCommission',authSuperAdmin, setAdminCommission);
 
 export default router;

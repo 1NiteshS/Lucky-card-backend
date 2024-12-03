@@ -584,3 +584,50 @@ export const getAllSubAdmins = async (req, res) => {
       });
   }
 };
+
+// New
+// Controller to set admin commission
+export const setAdminCommission = async (req, res) => {
+  const { adminId, commission } = req.body;
+
+  // Input validation
+  if (!adminId || commission === undefined) {
+      return res.status(400).json({ message: "All fields are required" });
+  }
+
+  if (commission < 0 || commission > 100) {
+      return res.status(400).json({ message: "Commission should be between 0 and 100 percent" });
+  }
+
+  try {
+      // Since `authSuperAdmin` middleware is applied before this, 
+      // `req.superAdmin` should be available here if the user is authenticated as superadmin.
+      if (!req.superAdmin) {
+          return res.status(403).json({ message: "Unauthorized. Only superadmin can perform this action" });
+      }
+
+      // Fetch the admin using the provided adminId
+      const admin = await Admin.findOne({ adminId });
+
+      if (!admin) {
+          return res.status(404).json({ message: "Admin not found" });
+      }
+
+      // Update the commission field for the admin
+      admin.commission = commission;
+
+      // Save the updated admin record
+      await admin.save();
+
+      // Respond with a success message and the updated commission
+      return res.status(200).json({
+          message: "Commission set successfully",
+          adminId: admin.adminId,
+          commission: admin.commission,
+      });
+  } catch (error) {
+      // Handle any unexpected errors
+      console.error("Error while setting admin commission:", error);
+      return res.status(500).json({ message: "Internal server error" });
+  }
+};

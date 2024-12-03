@@ -18,7 +18,6 @@ import {
   setCommission,
   getSubAdminByAdmin,
   dashLogin,
-  dashLogout
 } from "../controllers/adminController.js";
 import { authAdmin, authSuperAdmin } from "../middleware/auth.js";
 import {
@@ -63,6 +62,5 @@ router.post("/set-commission", setCommission);
 router.get("/subadmins/:adminId", getSubAdminByAdmin);
 // New
 router.post('/dashLogin', dashLogin)
-router.post('/dashLogout',authAdmin, dashLogout)
 
 export default router;
