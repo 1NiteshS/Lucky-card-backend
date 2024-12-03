@@ -181,6 +181,7 @@ export const logout = async (req, res) => {
   }
 };
 
+// New
 export const getSubAdminGameTotalInfo = async (req, res) => {
   try {
     const { subAdminId } = req.params;
@@ -229,6 +230,7 @@ export const getSubAdminGameTotalInfo = async (req, res) => {
   }
 };
 
+// New
 // Helper function to fetch sub-admin game data
 async function getSubAdminGameData(subAdminId, from, to) {
   // Verify sub-admin exists
@@ -270,6 +272,7 @@ async function getSubAdminGameData(subAdminId, from, to) {
   };
 }
 
+// New
 // Helper function to calculate sub-admin game totals
 async function calculateSubAdminGameTotals(
   games,

@@ -816,8 +816,6 @@ async function calculateAdminGameTotals(
   };
 }
 
-
-
 // New
 export const transferMoney = async (req, res) => {
   const { adminId, subAdminId, amount } = req.body;
