@@ -92,6 +92,13 @@ export const dashLogin = async (req, res) => {
     if (!admin || !(await bcrypt.compare(password, admin.password))) {
       return res.status(401).send({ error: "Invalid login credentials" });
     }
+     // Check if user is already logged in
+    if (admin.isLoggedIn) {
+      return res.status(400).json({
+        success: false,
+        message: 'You are already logged in from another device. Please logout first.'
+      });
+    }
 
     const token = jwt.sign({ _id: admin._id }, process.env.JWT_SECRET);
     res.send({ token, adminId: admin.adminId });
@@ -200,6 +207,7 @@ export const login = async (req, res) => {
   }
 };
 
+// New
 export const dashLogout = async (req, res) => {
   try {
     const admin = await Admin.findById(req.admin._id);
