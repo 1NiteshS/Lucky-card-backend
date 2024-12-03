@@ -14,11 +14,11 @@ export const create = async (req, res) => {
     const adminId = req.admin.adminId;
 
     // Check if SubAdmin already exists with this email
-    const existingSubAdmin = await SubAdmin.findOne({ email });
+    // const existingSubAdmin = await SubAdmin.findOne({ email });
 
-    if (existingSubAdmin) {
-      return res.status(400).send({ error: "Email already in use" });
-    }
+    // if (existingSubAdmin) {
+    //   return res.status(400).send({ error: "Email already in use" });
+    // }
 
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 8);
@@ -42,7 +42,6 @@ export const create = async (req, res) => {
       subAdmin: {
         name: subAdmin.name,
         email: subAdmin.email,
-        adminId: subAdmin.adminId,
         createdBy: subAdmin.createdBy,
       },
     });
@@ -50,6 +49,7 @@ export const create = async (req, res) => {
     res.status(400).send(error);
   }
 };
+
 
 // New
 export const login = async (req, res) => {

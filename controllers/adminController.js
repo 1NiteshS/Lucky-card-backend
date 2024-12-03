@@ -200,6 +200,37 @@ export const login = async (req, res) => {
   }
 };
 
+export const dashLogout = async (req, res) => {
+  try {
+    const admin = await Admin.findById(req.admin._id);
+    
+    if (!admin) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Admin not found' 
+      });
+    }
+
+    admin.isLoggedIn = false;
+    await admin.save();
+   
+
+    res.status(200).json({ 
+      success: true,
+      message: 'Logged out successfully'
+    });
+
+  } catch (error) {
+    console.error('Logout error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Logout failed',
+      error: error.message 
+    });
+  }
+};
+
+
 // New
 // Logout route mein
 export const logout = async (req, res) => {

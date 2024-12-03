@@ -1425,57 +1425,155 @@ export const getAdminResults = async (req, res) => {
   }
 };
 
+// export const claimWinnings = async (req, res) => {
+//   try {
+//     const { adminId, gameId, ticketsID } = req.body;
+//     // Verify if the admin exists
+//     const admin = await Admin.findOne({ adminId });
+//     if (!admin) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Admin not found",
+//       });
+//     }
+//     // Find the specific game result
+//     const gameResult = await AdminGameResult.findOne({ gameId });
+//     if (!gameResult) {
+//       return res.status(404).json({
+//         success: false,
+//         message: "Game result not found",
+//       });
+//     }
+//     // Check if the admin is a winner in this game and has the specified ticket
+//     const winner = gameResult.winners.find(
+//       (w) => w.adminId === adminId && w.ticketsID === ticketsID
+//     );
+//     if (!winner) {
+//       return res.status(400).json({
+//         success: false,
+//         message: "Admin is not a winner with the specified ticket in this game",
+//       });
+//     }
+//     // Check if the admin has already claimed this ticket
+//     if (winner.status === "claimed") {
+//       return res.status(400).json({
+//         success: false,
+//         message: "You have already claimed this ticket",
+//       });
+//     }
+//     // Update admin's wallet
+//     admin.wallet += winner.winAmount;
+//     await admin.save();
+//     // Mark the ticket as claimed for this admin
+//     winner.status = "claimed";
+//     await gameResult.save();
+//     res.status(200).json({
+//       success: true,
+//       message: "Winnings claimed successfully",
+//       data: {
+//         adminId: admin.adminId,
+//         gameId: gameResult.gameId,
+//         ticketId: winner.ticketId,
+//         claimedAmount: winner.winAmount,
+//         newWalletBalance: admin.wallet,
+//       },
+//     });
+//   } catch (error) {
+//     console.error("Error claiming winnings:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Error claiming winnings",
+//       error: error.message,
+//     });
+//   }
+// };
+
 export const claimWinnings = async (req, res) => {
   try {
     const { adminId, gameId, ticketsID } = req.body;
-    // Verify if the admin exists
-    const admin = await Admin.findOne({ adminId });
-    if (!admin) {
-      return res.status(404).json({
+    const { userType } = req.body;
+
+    if(req.admin.adminId !== adminId) {
+      return res.status(403).json({
         success: false,
-        message: "Admin not found",
+        message: "Unauthorized access",
       });
     }
-    // Find the specific game result
+
+    let user;
+    let actualAdminId;
+
+    if (userType === "admin") {
+      user = await Admin.findOne({ adminId });
+      if(!user) {
+        return res.status(404).json({
+          success: false,
+          message: "Admin not found",
+        });
+      }
+      actualAdminId = adminId;
+    } else if (userType === "subadmin") {
+      user = await SubAdmin.findOne({ subAdminId: adminId });
+      if(!user) {
+        return res.status(404).json({
+          success: false,
+          message: "SubAdmin not found",
+        });
+      }
+      actualAdminId = user.createdBy;
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user type",
+      });
+    }
+
     const gameResult = await AdminGameResult.findOne({ gameId });
-    if (!gameResult) {
+    if(!gameResult) {
       return res.status(404).json({
         success: false,
         message: "Game result not found",
       });
     }
-    // Check if the admin is a winner in this game and has the specified ticket
+
+     // Check if the user is a winner in this game and has the specified ticket
     const winner = gameResult.winners.find(
-      (w) => w.adminId === adminId && w.ticketsID === ticketsID
+      (w) => w.adminId === actualAdminId && w.ticketsID === ticketsID
     );
+
     if (!winner) {
       return res.status(400).json({
         success: false,
-        message: "Admin is not a winner with the specified ticket in this game",
+        message: `${userType} is not a winner with the specified ticket in this game`,
       });
     }
-    // Check if the admin has already claimed this ticket
+
+    // Check if the ticket has already been claimed
     if (winner.status === "claimed") {
       return res.status(400).json({
         success: false,
-        message: "You have already claimed this ticket",
+        message: "This ticket has already been claimed",
       });
     }
-    // Update admin's wallet
-    admin.wallet += winner.winAmount;
-    await admin.save();
-    // Mark the ticket as claimed for this admin
+
+    // Update user's wallet
+    user.wallet += winner.winAmount;
+    await user.save();
+
+    // Mark the ticket as claimed
     winner.status = "claimed";
     await gameResult.save();
+
     res.status(200).json({
       success: true,
       message: "Winnings claimed successfully",
       data: {
-        adminId: admin.adminId,
+        userId: userType === "admin" ? user.adminId : user.subAdminId,
         gameId: gameResult.gameId,
         ticketId: winner.ticketId,
         claimedAmount: winner.winAmount,
-        newWalletBalance: admin.wallet,
+        newWalletBalance: user.wallet,
+        userType: userType
       },
     });
   } catch (error) {
@@ -1929,7 +2027,6 @@ export const claimAllWinnings = async (req, res) => {
     });
   }
 };
-
 
 // Controller function to fetch latest 10 selected cards
 export const getLatestSelectedCards = async (req, res) => {

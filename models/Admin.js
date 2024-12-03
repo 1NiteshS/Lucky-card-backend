@@ -7,8 +7,6 @@ const AdminSchema = new mongoose.Schema(
         email: { type: String, required: true, unique: true },
         password: { type: String, required: true },
         adminId: { type: String, required: true, unique: true },
-        password: { type: String, required: true },
-        adminId: { type: String, required: true, unique: true },
         lastname: { type: String, default: "XYZ" },
         type: { type: String, default: "admin"},
         isVerified: { type: Boolean, default: false },
@@ -18,10 +16,7 @@ const AdminSchema = new mongoose.Schema(
         wallet: { type: Number, default: 0 },
         isBlocked: { type: Boolean, default: false },
         ked: { type: Boolean, default: false },
-        isLoggedIn: {
-            type: Boolean,
-            default: false
-        }
+        isLoggedIn: {type: Boolean, default: false}
     },
     { timestamps: true }
 );

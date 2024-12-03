@@ -2,8 +2,8 @@ import mongoose from 'mongoose';
 
 const SubAdminSchema = new mongoose.Schema(
     {
-        name: { type: String, required: true },
-        email: { type: String, required: true, unique: true },
+        name: { type: String },
+        email: { type: String },
         password: { type: String, required: true },
         subAdminId: { type: String, required: true, unique: true },
         type: { type: String, default: "subAdmin"},
@@ -15,7 +15,7 @@ const SubAdminSchema = new mongoose.Schema(
         ked: { type: Boolean, default: false }, 
         isLoggedIn: { type: Boolean, default: false },
         commission: {type: Number, default: 0},
-        createdBy: { type: String, required: true }, // Field to track which Admin created this SubAdmin
+        createdBy: { type: String, ref: 'Admin' }, // Field to track which Admin created this SubAdmin
     },
     { timestamps: true }
 );
