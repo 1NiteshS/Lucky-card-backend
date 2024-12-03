@@ -910,6 +910,27 @@ export const setCommission = async (req, res) => {
 };
 
 // New
+// export const getSubAdminByAdmin = async (req, res) => {
+//   try {
+//     const { adminId } = req.params;
+
+//     //check if the admin exists
+//     const admin = await Admin.findOne({ adminId });
+//     if (!admin) {
+//       return res.status(404).json({message: "Admin not found"});
+//     }
+
+//     // Fetch the subadmins created by this admin
+//     const subadmins = await SubAdmin.find({ createdBy: adminId });
+
+//     res.status(200).json( subadmins )
+    
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({message: "Server Error"});
+//   }
+// }
+
 export const getSubAdminByAdmin = async (req, res) => {
   try {
     const { adminId } = req.params;
@@ -923,10 +944,17 @@ export const getSubAdminByAdmin = async (req, res) => {
     // Fetch the subadmins created by this admin
     const subadmins = await SubAdmin.find({ createdBy: adminId });
 
-    res.status(200).json( subadmins )
+    // Create response object with admin name and subadmins
+    const response = {
+      adminName: admin.name,
+      adminLastName: admin.lastname,
+      subadmins: subadmins
+    };
+
+    res.status(200).json(response);
     
   } catch (error) {
     console.error(error);
     res.status(500).json({message: "Server Error"});
   }
-}
+};
