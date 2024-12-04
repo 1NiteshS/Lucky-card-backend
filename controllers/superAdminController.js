@@ -44,11 +44,10 @@ export const getAllAdmins = async (req, res) => {
       name: admin.name,
       email: admin.email,
       creationDate: admin.createdAt,
+      commission : admin.commission,
       password: admin.password.replace(/./g, "*").slice(0, 10) + "...",
       walletBalance: admin.wallet,
     }));
-
-    console.log(adminData);
 
     return res.status(200).json(adminData);
   } catch (error) {
