@@ -3,12 +3,11 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { v4 as uuidv4 } from "uuid";
 import UserCount from "../models/UserCount.js";
-import { getIO } from "../socket/sockectServer.js";
 
 // New
 export const create = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, device } = req.body;
 
     // Assuming logged-in Admin's ID is available in `req.admin.adminId`
     const adminId = req.admin.adminId;
@@ -30,6 +29,7 @@ export const create = async (req, res) => {
       email,
       password: hashedPassword,
       subAdminId,
+      device,
       createdBy: adminId, // Track the creator Admin
     });
 
@@ -42,6 +42,7 @@ export const create = async (req, res) => {
       subAdmin: {
         name: subAdmin.name,
         email: subAdmin.email,
+        device: subAdmin.device,
         createdBy: subAdmin.createdBy,
       },
     });
@@ -50,11 +51,18 @@ export const create = async (req, res) => {
   }
 };
 
-
 // New
 export const login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, device } = req.body;
+
+    // Validate device type
+    if (!["Phone", "PC"].includes(device)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid device type. Please provide 'Phone' or 'PC'.",
+      });
+    }
 
     // Find admin
     const admin = await SubAdmin.findOne({ email });
@@ -65,9 +73,16 @@ export const login = async (req, res) => {
       });
     }
 
+    // Check if the user is already logged in from another device type
+    if (admin.isLoggedIn && admin.device !== device) {
+      return res.status(400).json({
+        success: false,
+        message: `You are already logged in on a ${admin.device}. Please log out from that device before logging in on a ${device}.`,
+      });
+    }
+
     // Check password
     const isPasswordMatch = await bcrypt.compare(password, admin.password);
-
     if (!isPasswordMatch) {
       return res.status(400).json({
         success: false,
@@ -75,14 +90,16 @@ export const login = async (req, res) => {
       });
     }
 
-    // Update admin login status
+    // Update admin login status and device
     admin.isLoggedIn = true;
+    admin.device = device;
     await admin.save();
 
-    // Ensure a record exists for today
+    // Get today's date at midnight
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    // Find or create today's user count record
     let userCount = await UserCount.findOne({
       date: {
         $gte: today,
@@ -90,7 +107,7 @@ export const login = async (req, res) => {
       },
     });
 
-    // If no record exists, create one
+    // If no record exists for today, create one
     if (!userCount) {
       userCount = new UserCount({
         date: today,
@@ -100,7 +117,7 @@ export const login = async (req, res) => {
       });
     }
 
-    // Update user count
+    // Update counts
     userCount.totalLogins += 1;
     userCount.loggedInUsers += 1;
 
@@ -109,7 +126,6 @@ export const login = async (req, res) => {
       userCount.uniqueUsers.push(admin._id);
     }
 
-    // Save the updated or new record
     await userCount.save();
 
     // Generate token
@@ -127,7 +143,8 @@ export const login = async (req, res) => {
       success: true,
       token,
       type: admin.type,
-      adminId: admin.adminId,
+      adminId: admin.subAdminId,
+      device,
       loggedInUsers: userCount.loggedInUsers,
       totalLogins: userCount.totalLogins,
       uniqueUsers: userCount.uniqueUsers.length,
@@ -329,3 +346,51 @@ async function calculateSubAdminGameTotals(
     NTP,
   };
 }
+
+// New
+export const resetSubPassword = async (req, res) => {
+  try {
+      const { subAdminId } = req.params;
+      const { newPassword } = req.body;
+
+      // Validate inputs
+      if (!subAdminId || !newPassword) {
+          return res.status(400).json({
+              success: false,
+              message: "SubAdmin ID and new password are required"
+          });
+      }
+
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Find and update SubAdmin's password
+      const updatedSubAdmin = await SubAdmin.findOneAndUpdate(
+          { subAdminId },
+          { 
+              password: hashedPassword,
+              isVerified: true
+          },
+          { new: true }
+      );
+
+      if (!updatedSubAdmin) {
+          return res.status(404).json({
+              success: false,
+              message: "SubAdmin not found"
+          });
+      }
+
+      return res.status(200).json({
+          success: true,
+          message: "Password reset successful"
+      });
+
+  } catch (error) {
+      return res.status(500).json({
+          success: false,
+          message: "Error in resetting password",
+          error: error.message
+      });
+  }
+};

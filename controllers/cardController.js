@@ -260,12 +260,8 @@ export const calculateAmounts = async () => {
     };
 
     await saveSelectedCard(WinningCard, latestGame.GameId);
-    if (WinningCard.amount == 0) {
-      return {
-        message: "Amounts calculated successfully",
-        WinningCard,
-      };
-    }
+    console.log("latestGame", latestGame);
+    console.log("WinningCard", WinningCard);
     const adminResults = await calculateAdminResults(latestGame, WinningCard);
     await getAdminGameResults(latestGame.GameId, adminResults);
     // await processAllSelectedCards();
@@ -677,8 +673,8 @@ const processGameBetsWithZeroRandomAndMin = async (bets) => {
 };
 
 async function selectRandomAmount(validAmounts, percAmount, type) {
-  
- if (type === "processGameBets") {
+
+  if (type === "processGameBets") {
     let allEntries = [];   
 
     // Collect all valid entries with their values
@@ -804,29 +800,23 @@ async function selectRandomAmount(validAmounts, percAmount, type) {
 
 // Function to save the selected card data
 const saveSelectedCard = async (selectedAmount, gameId) => {
+  console.log("selectedAmount", selectedAmount);
+  
   // Check if selectedAmount is empty
   if (Object.keys(selectedAmount).length === 0) {
     console.log("selected amounts is empty.");
     return {}; // Return an empty object if validAmounts is empty
   }
 
-  // const drowTime = {
-  //   drowTime: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })
-  // }
   const drowTime = new Date().toLocaleString("en-IN", {
     timeZone: "Asia/Kolkata",
   });
-  // const drowTime = new Date(new Date().toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
-
-  // console.log(drowTime);
 
   const selectedCardData = {
     gameId: gameId,
     cardId: selectedAmount.cardId,
     multiplier: selectedAmount.multiplier,
     amount: selectedAmount.amount,
-    adminID: selectedAmount.adminID,
-    ticketsID: selectedAmount.ticketsID,
     drowTime: drowTime,
   };
 
@@ -890,92 +880,12 @@ export const resetTimer = async () => {
   }
 };
 
-// Assuming this is in your cardController.js file
-// export const placeBet = async (req, res) => {
-//   const { ticketsID, cards, GameId } = req.body; // Accept cards as an array in the request body
-//   const { adminId } = req.params; // Get adminId from URL params
-
-//   try {
-//     // Fetch the admin details using admin ID
-//     const admin = await Admin.findOne({ adminId: adminId });
-
-//     if (!admin) {
-//       return res.status(404).json({ message: "Admin not found!" });
-//     }
-
-//     // Calculate the total bet amount from all the cards
-//     let totalAmount = 0;
-//     if (Array.isArray(cards)) {
-//       cards.forEach((card) => {
-//         if (card.Amount) {
-//           totalAmount += card.Amount; // Accumulate the amount from each card
-//         }
-//       });
-//     }
-
-//     // Check if admin has sufficient balance
-//     if (admin.wallet < totalAmount) {
-//       return res
-//         .status(400)
-//         .json({ message: "Insufficient balance in wallet!" });
-//     }
-
-//     // Check if there is an active game with the given GameId
-//     const activeGame = await Game.findOne({ GameId: GameId });
-
-//     if (!activeGame) {
-//       return res.status(404).json({ message: "Game not found!" });
-//     }
-
-//     // Create a new bet entry (gameDetails) to be pushed into the Bets array
-//     const newBet = {
-//       adminID: admin.adminId, // Use adminId from Admin model
-//       ticketsID: ticketsID,
-//       card: [], // Initialize an empty array for cards
-//       ticketTime: new Date().toLocaleString("en-IN", {
-//         timeZone: "Asia/Kolkata",
-//       }), // Indian Standard Time (IST)
-//     };
-
-//     // Loop through the cards array and add each card to the newBet
-//     if (Array.isArray(cards)) {
-//       cards.forEach((card) => {
-//         if (card.cardNo && card.Amount) {
-//           // Ensure cardNo and Amount are provided
-//           newBet.card.push({
-//             cardNo: card.cardNo,
-//             Amount: card.Amount,
-//           });
-//         }
-//       });
-//     }
-
-//     // Add the new bet to the Bets array of the game
-//     activeGame.Bets.push(newBet);
-
-//     // Deduct the total bet amount from admin's wallet
-//     admin.wallet -= totalAmount;
-
-//     // Save the updated game and admin wallet
-//     await Promise.all([activeGame.save(), admin.save()]);
-
-//     return res.status(200).json({
-//       message: "Game data successfully uploaded and bet placed successfully!",
-//       game: activeGame,
-//       updatedWalletBalance: admin.wallet,
-//     });
-//   } catch (error) {
-//     console.error("Error uploading game data:", error);
-//     return res
-//       .status(500)
-//       .json({ message: "Failed to upload game data.", error: error.message });
-//   }
-// };
-
 // New
 export const placeBet = async (req, res) => {
   const { ticketsID, cards, GameId } = req.body;
-  const { adminId } = req.params; // Get adminId from URL params
+  // const { adminId } = req.params; // Get adminId from URL params
+  // console.log(adminId);
+  
 
   try {
     let user;
@@ -1014,7 +924,7 @@ export const placeBet = async (req, res) => {
 
     // Create a new bet entry (gameDetails) to be pushed into the Bets array
     const newBet = {
-      userId: user.adminId || user.subAdminId,  // Identify the user by adminId or subAdminId
+      adminID: user.adminId || user.subAdminId,  // Identify the user by adminId or subAdminId
       ticketsID: ticketsID,
       card: [],
       ticketTime: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }), // Indian Standard Time (IST)
@@ -1053,45 +963,68 @@ export const placeBet = async (req, res) => {
   }
 };
 
+// New
 export const getAdminLatestBets = async (req, res) => {
-  const { adminId } = req.params;
+  const { userId, type } = req.params;
 
   try {
-    // First verify if admin exists
-    const admin = await Admin.findOne({ adminId: adminId });
-
-    if (!admin) {
-      return res.status(404).json({ message: "Admin not found!" });
+    // Find user based on type
+    let user;
+    if (type === 'subAdmin') {
+      user = await SubAdmin.findOne({ subAdminId: userId });
+    } else {
+      user = await Admin.findOne({ adminId: userId });
     }
 
-    // Find the latest game that contains bets from this admin
-    const latestGame = await Game.findOne().sort({ _id: -1  }); // Sort by date in descending order to get the latest
-
-    if (!latestGame) {
+    if (!user) {
       return res.status(404).json({ 
-        message: "No bets found for this admin",
-        adminId: adminId
+        success: false,
+        message: `${type === 'subAdmin' ? 'SubAdmin' : 'Admin'} not found!` 
       });
     }
 
-    // Filter bets to only include those from this admin
-    const adminBets = latestGame.Bets.filter(bet => bet.adminID === adminId);
+    // Find the latest game that contains bets from this user
+    const latestGame = await Game.findOne().sort({ _id: -1 });
+
+    if (!latestGame) {
+      return res.status(404).json({ 
+        success: false,
+        message: "No bets found",
+        userId: userId,
+        userType: type
+      });
+    }
+
+    // Filter bets to only include those from this user
+    const userBets = latestGame.Bets.filter(bet => 
+      bet.adminID === userId && bet.type === type
+    );
+
+    if (userBets.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: `No bets found for this ${type}`,
+        userId: userId,
+        userType: type
+      });
+    }
 
     // Calculate total bet amount for this game
-    const totalGameAmount = adminBets.reduce((total, bet) => 
+    const totalGameAmount = userBets.reduce((total, bet) => 
       total + bet.card.reduce((sum, card) => sum + card.Amount, 0), 0
     );
 
     return res.status(200).json({
       success: true,
-      adminId: adminId,
-      currentWalletBalance: admin.wallet,
+      userId: userId,
+      userType: type,
+      currentWalletBalance: user.wallet,
       gameDetails: {
         gameId: latestGame.GameId,
         gameDate: latestGame.Date,
-        totalBets: adminBets.length,
+        totalBets: userBets.length,
         totalAmount: totalGameAmount,
-        bets: adminBets.map(bet => ({
+        bets: userBets.map(bet => ({
           ticketsID: bet.ticketsID,
           ticketTime: bet.ticketTime,
           cards: bet.card.map(card => ({
@@ -1103,10 +1036,10 @@ export const getAdminLatestBets = async (req, res) => {
     });
 
   } catch (error) {
-    console.error("Error fetching admin's latest game bets:", error);
+    console.error(`Error fetching ${type}'s latest game bets:`, error);
     return res.status(500).json({ 
       success: false,
-      message: "Failed to fetch admin's latest game bet data", 
+      message: `Failed to fetch ${type}'s latest game bet data`,
       error: error.message 
     });
   }
@@ -1199,8 +1132,9 @@ export const placeAutomatedBet = async (req, res) => {
   }
 };
 
+// New
 export const deleteBetByTicketId = async (req, res) => {
-  const { ticketId } = req.params;
+  const { ticketId, type } = req.params;
 
   try {
     // Step 1: Find the game and bet containing the ticket
@@ -1222,12 +1156,8 @@ export const deleteBetByTicketId = async (req, res) => {
       });
     }
 
-    // Extract adminId from the bet
+    // Extract adminId and type from the bet
     const { adminID } = bet;
-
-    const adminId = adminID;
-
-    // Sum the Amounts from all cards in the card array
     const totalAmount = bet.card.reduce((sum, card) => sum + card.Amount, 0);
 
     // Step 3: Delete the bet from the game
@@ -1237,19 +1167,50 @@ export const deleteBetByTicketId = async (req, res) => {
       { new: true }
     );
 
-    // Step 4: Update the admin's wallet with the total bet amount
-    const updatedAdmin = await Admin.findOneAndUpdate(
-      { adminId },
-      { $inc: { wallet: totalAmount } },
-      { new: true }
-    );
+    let updatedWallet;
+
+    // Step 4: Update wallet based on type
+    if (type === 'subAdmin') {
+      // Update SubAdmin's wallet
+      const updatedSubAdmin = await SubAdmin.findOneAndUpdate(
+        { subAdminId: adminID },
+        { $inc: { wallet: totalAmount } },
+        { new: true }
+      );
+      
+      if (!updatedSubAdmin) {
+        return res.status(404).json({
+          success: false,
+          message: "SubAdmin not found"
+        });
+      }
+      
+      updatedWallet = updatedSubAdmin.wallet;
+    } else {
+      // Update Admin's wallet
+      const updatedAdmin = await Admin.findOneAndUpdate(
+        { adminId: adminID },
+        { $inc: { wallet: totalAmount } },
+        { new: true }
+      );
+      
+      if (!updatedAdmin) {
+        return res.status(404).json({
+          success: false,
+          message: "Admin not found"
+        });
+      }
+      
+      updatedWallet = updatedAdmin.wallet;
+    }
 
     // Return the updated wallet amount in the response
     return res.status(200).json({
       success: true,
       message: `Delete successful for Ticket ID ${ticketId}`,
       deletedFromGame: result.GameId,
-      updatedAdminWallet: updatedAdmin.wallet // Include updated wallet balance
+      userType: type,
+      updatedWallet: updatedWallet
     });
   } catch (error) {
     return res.status(500).json({
@@ -1373,125 +1334,83 @@ export const getAdminGameResult = async (req, res) => {
   }
 };
 
+// New
 export const getAdminResults = async (req, res) => {
   try {
-    const { adminId } = req.params;
-    // Verify if the admin exists
-    const admin = await Admin.findOne({ adminId });
-    if (!admin) {
+    const { userId, type } = req.params;
+
+    // Find user based on type
+    let user;
+    if (type === 'subAdmin') {
+      user = await SubAdmin.findOne({ subAdminId: userId });
+    } else {
+      user = await Admin.findOne({ adminId: userId });
+    }
+
+    if (!user) {
       return res.status(404).json({
         success: false,
-        message: "Admin not found",
+        message: `${type === 'subAdmin' ? 'SubAdmin' : 'Admin'} not found`,
       });
     }
-    // Find all game results where this admin is either a winner or a loser
-    const adminGameResults = await AdminGameResult.find({
-      $or: [{ "winners.adminId": adminId }, { "losers.adminId": adminId }],
-    }).sort({ createdAt: -1 }); // Sort by most recent games first
-    // Process the results to only include this admin's data
-    const processedResults = adminGameResults.map((gameResult) => {
-      const adminData =
-        gameResult.winners.find((winner) => winner.adminId === adminId) ||
-        gameResult.losers.find((loser) => loser.adminId === adminId);
+
+    // Create query condition based on user type
+    const queryCondition = type === 'subAdmin' 
+      ? { $or: [{ "winners.subAdminId": userId }, { "losers.subAdminId": userId }] }
+      : { $or: [{ "winners.adminId": userId }, { "losers.adminId": userId }] };
+
+    // Find all game results for this user
+    const gameResults = await AdminGameResult.find(queryCondition)
+      .sort({ createdAt: -1 }); // Sort by most recent games first
+
+    // Process the results to only include this user's data
+    const processedResults = gameResults.map((gameResult) => {
+      // Find user data in winners or losers based on type
+      const userData = type === 'subAdmin'
+        ? gameResult.winners.find((winner) => winner.subAdminId === userId) ||
+          gameResult.losers.find((loser) => loser.subAdminId === userId)
+        : gameResult.winners.find((winner) => winner.adminId === userId) ||
+          gameResult.losers.find((loser) => loser.adminId === userId);
+
+      // Determine if user is in winners array
+      const isWinner = type === 'subAdmin'
+        ? gameResult.winners.some(winner => winner.subAdminId === userId)
+        : gameResult.winners.some(winner => winner.adminId === userId);
+
       return {
         gameId: gameResult.gameId,
-        adminResult: {
-          // ...adminData,
-          adminData: adminData._doc,
-          status: adminData
-            ? gameResult.winners.includes(adminData)
-              ? "win"
-              : "lose"
-            : null,
+        userResult: {
+          userData: userData._doc,
+          status: isWinner ? "win" : "lose"
         },
         playedAt: gameResult.createdAt,
       };
     });
+
     res.status(200).json({
       success: true,
-      message: "Admin game results retrieved successfully",
+      message: `${type === 'subAdmin' ? 'SubAdmin' : 'Admin'} game results retrieved successfully`,
       data: {
-        adminId: adminId,
+        userId: userId,
+        userType: type,
         gameResults: processedResults,
       },
     });
+
   } catch (error) {
-    console.error("Error retrieving admin game results:", error);
+    console.error(`Error retrieving ${req.params.type} game results:`, error);
     res.status(500).json({
       success: false,
-      message: "Error retrieving admin game results",
+      message: `Error retrieving ${req.params.type} game results`,
       error: error.message,
     });
   }
 };
 
-// export const claimWinnings = async (req, res) => {
-//   try {
-//     const { adminId, gameId, ticketsID } = req.body;
-//     // Verify if the admin exists
-//     const admin = await Admin.findOne({ adminId });
-//     if (!admin) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Admin not found",
-//       });
-//     }
-//     // Find the specific game result
-//     const gameResult = await AdminGameResult.findOne({ gameId });
-//     if (!gameResult) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Game result not found",
-//       });
-//     }
-//     // Check if the admin is a winner in this game and has the specified ticket
-//     const winner = gameResult.winners.find(
-//       (w) => w.adminId === adminId && w.ticketsID === ticketsID
-//     );
-//     if (!winner) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Admin is not a winner with the specified ticket in this game",
-//       });
-//     }
-//     // Check if the admin has already claimed this ticket
-//     if (winner.status === "claimed") {
-//       return res.status(400).json({
-//         success: false,
-//         message: "You have already claimed this ticket",
-//       });
-//     }
-//     // Update admin's wallet
-//     admin.wallet += winner.winAmount;
-//     await admin.save();
-//     // Mark the ticket as claimed for this admin
-//     winner.status = "claimed";
-//     await gameResult.save();
-//     res.status(200).json({
-//       success: true,
-//       message: "Winnings claimed successfully",
-//       data: {
-//         adminId: admin.adminId,
-//         gameId: gameResult.gameId,
-//         ticketId: winner.ticketId,
-//         claimedAmount: winner.winAmount,
-//         newWalletBalance: admin.wallet,
-//       },
-//     });
-//   } catch (error) {
-//     console.error("Error claiming winnings:", error);
-//     res.status(500).json({
-//       success: false,
-//       message: "Error claiming winnings",
-//       error: error.message,
-//     });
-//   }
-// };
-
+// New
 export const claimWinnings = async (req, res) => {
   try {
-    const { adminId, gameId, ticketsID } = req.body;
-    const { userType } = req.body;
+    const { adminId, gameId, ticketsID, userType } = req.body;
 
     if(req.admin.adminId !== adminId) {
       return res.status(403).json({
@@ -1568,7 +1487,7 @@ export const claimWinnings = async (req, res) => {
       success: true,
       message: "Winnings claimed successfully",
       data: {
-        userId: userType === "admin" ? user.adminId : user.subAdminId,
+        adminID: userType === "admin" ? user.adminId : user.subAdminId,
         gameId: gameResult.gameId,
         ticketId: winner.ticketId,
         claimedAmount: winner.winAmount,
@@ -1671,19 +1590,26 @@ export const getAllRecentWinningCards = async (req, res) => {
   }
 };
 
+// New
 export const getAdminGameResultsForAdmin = async (req, res) => {
   try {
-    const { adminId } = req.params;
+    const { userId, type } = req.params;
     const gameId = req.params.gameId || req.query.gameId;
-    const { from, to, ticketsID } = req.body;
+    const { from, to } = req.body;
 
-    // Ensure the authenticated admin matches the requested adminId
-    if (req.admin.adminId !== adminId) {
-      return res
-        .status(403)
-        .json({ success: false, message: "Unauthorized access" });
+    // Get authenticated user based on type
+    const authenticatedUser = type === 'subAdmin' ? req.subAdmin : req.admin;
+    const userIdField = type === 'subAdmin' ? 'subAdminId' : 'adminId';
+
+    // Check authentication
+    if (authenticatedUser[userIdField] !== userId) {
+      return res.status(403).json({ 
+        success: false, 
+        message: "Unauthorized access" 
+      });
     }
 
+    // Build query
     let query = {};
     if (gameId) {
       query.gameId = gameId;
@@ -1698,52 +1624,75 @@ export const getAdminGameResultsForAdmin = async (req, res) => {
       };
     }
 
-    const adminGameResults = await AdminGameResult.find(query).lean();
+    const gameResults = await AdminGameResult.find(query).lean();
 
-    if (adminGameResults.length === 0) {
+    if (gameResults.length === 0) {
       return res.status(404).json({
         success: false,
-        message: "No game results found for this admin",
+        message: `No game results found for this ${type}`
       });
     }
 
-    const transformedResults = adminGameResults.map((result) => {
-      // Filter winners and losers for the specific adminId before combining
+    const transformedResults = gameResults.map((result) => {
+      // Filter winners and losers based on user type
       const filteredWinners = (result.winners || []).filter(
-        (winner) => winner.adminId === adminId
+        (winner) => winner[userIdField] === userId
       );
 
       const filteredLosers = (result.losers || []).filter(
-        (loser) => loser.adminId === adminId
+        (loser) => loser[userIdField] === userId
       );
 
-      // Combine the filtered winners and losers
-      const adminresult = [...filteredWinners, ...filteredLosers];
+      // Combine filtered results
+      const userResults = [...filteredWinners, ...filteredLosers];
+
+      // Add user type to each result for clarity
+      const resultsWithType = userResults.map(result => ({
+        ...result,
+        userType: type
+      }));
 
       return {
         _id: result._id,
         gameId: result.gameId,
         winningCard: result.winningCard,
-        adminresult: adminresult,
+        userResults: resultsWithType,
+        timestamp: result.createdAt
       };
     });
 
-    // Filter out any games where the admin had no results
+    // Filter out games where user had no results
     const finalResults = transformedResults.filter(
-      (result) => result.adminresult.length > 0
+      (result) => result.userResults.length > 0
+    );
+
+    // Calculate summary statistics
+    const totalGames = finalResults.length;
+    const totalWins = finalResults.reduce((count, game) => 
+      count + game.userResults.filter(r => r.status === 'win').length, 0
     );
 
     return res.status(200).json({
       success: true,
-      message: "Admin game results retrieved successfully",
-      data: finalResults,
+      message: `${type} game results retrieved successfully`,
+      data: {
+        userId,
+        userType: type,
+        summary: {
+          totalGames,
+          totalWins,
+          winRate: totalGames ? ((totalWins / totalGames) * 100).toFixed(2) + '%' : '0%'
+        },
+        results: finalResults
+      }
     });
+
   } catch (error) {
-    console.error("Error retrieving admin game results:", error);
+    console.error(`Error retrieving ${req.params.type} game results:`, error);
     return res.status(500).json({
       success: false,
-      message: "Error retrieving admin game results",
-      error: error.message,
+      message: `Error retrieving ${req.params.type} game results`,
+      error: error.message
     });
   }
 };
@@ -1815,84 +1764,6 @@ export const getTotalWinnings = async (req, res) => {
     });
   }
 };
-
-// Claim all winnings for an admin
-// export const claimAllWinnings = async (req, res) => {
-//   try {
-//     const { adminId } = req.params;
-
-//     // Check if authenticated admin matches the requested adminId
-//     if (req.admin.adminId !== adminId) {
-//       return res.status(403).json({
-//         success: false,
-//         message: "Unauthorized access",
-//       });
-//     }
-
-//     // Find the admin
-//     const admin = await Admin.findOne({ adminId });
-//     if (!admin) {
-//       return res.status(404).json({
-//         success: false,
-//         message: "Admin not found",
-//       });
-//     }
-
-//     // Find all game results with unclaimed winnings for this admin
-//     const gameResults = await AdminGameResult.find({
-//       "winners.adminId": adminId,
-//       "winners.status": "win",
-//     });
-
-//     let totalClaimedAmount = 0;
-//     const claimedGames = [];
-
-//     // Process each game result
-//     for (const game of gameResults) {
-//       const adminWinners = game.winners.filter(
-//         (winner) => winner.adminId === adminId && winner.status === "win"
-//       );
-
-//       for (const winner of adminWinners) {
-//         // Update winner status to claimed
-//         winner.status = "claimed";
-//         totalClaimedAmount += winner.winAmount;
-
-//         claimedGames.push({
-//           gameId: game.gameId,
-//           ticketsID: winner.ticketsID,
-//           winAmount: winner.winAmount,
-//         });
-//       }
-
-//       await game.save();
-//     }
-
-//     // Update admin's wallet with total claimed amount
-//     if (totalClaimedAmount > 0) {
-//       admin.wallet += totalClaimedAmount;
-//       await admin.save();
-//     }
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "All winnings claimed successfully",
-//       data: {
-//         adminId: admin.adminId,
-//         totalClaimedAmount,
-//         claimedGames,
-//         newWalletBalance: admin.wallet,
-//       },
-//     });
-//   } catch (error) {
-//     console.error("Error claiming all winnings:", error);
-//     return res.status(500).json({
-//       success: false,
-//       message: "Error claiming all winnings",
-//       error: error.message,
-//     });
-//   }
-// };
 
 // New
 export const claimAllWinnings = async (req, res) => {
@@ -2012,7 +1883,7 @@ export const claimAllWinnings = async (req, res) => {
       success: true,
       message: `${userType.charAt(0).toUpperCase() + userType.slice(1)} winnings claimed successfully`,
       data: {
-        userId: user.subAdminId || user.adminId, // Return the user ID based on type
+        adminID: user.subAdminId || user.adminId, // Return the user ID based on type
         totalClaimedAmount,
         claimedGames,
         newWalletBalance: user.wallet,

@@ -13,6 +13,7 @@ const SubAdminSchema = new mongoose.Schema(
         wallet: { type: Number, default: 0 },
         isBlocked: { type: Boolean, default: false },
         ked: { type: Boolean, default: false }, 
+        device: { type: String, enum: ['PC', 'Phone'], default: "PC"},
         isLoggedIn: { type: Boolean, default: false },
         commission: {type: Number, default: 0},
         createdBy: { type: String, ref: 'Admin' }, // Field to track which Admin created this SubAdmin

@@ -4,7 +4,7 @@ import UserCount from '../models/UserCount.js'
 import { Server } from "socket.io";
 import { calculateAmounts as calcAmounts, getCurrentGame } from '../controllers/cardController.js';
 
-let mainTime = 120;
+let mainTime = 30;
 let timer = {
     remainingTime: mainTime,
     isRunning: false

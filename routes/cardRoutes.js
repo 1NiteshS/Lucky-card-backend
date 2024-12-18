@@ -30,17 +30,17 @@ const router = express.Router();
 router.get("/calculate", calculateAmounts);
 
 // Route to place a bet
-router.post("/bet/:adminId", authAdmin, placeBet);
+router.post("/bet", authAdmin, placeBet);
 
 // New
 // Route for SubAdmin to place a bet
 router.post('/bet/subadmin/:adminId', authSubAdmin, placeBet);
 
 // In your routes file
-router.get('/getBets/:adminId', getAdminLatestBets);
+router.get('/getBets/:userId/:type', getAdminLatestBets);
 
 // DELETE /api/bets/:ticketId
-router.delete('/deleteBets/:ticketId', deleteBetByTicketId);
+router.delete('/deleteBets/:ticketId/:type', deleteBetByTicketId);
 
 router.post("/betBot", placeAutomatedBet);
 
@@ -59,7 +59,7 @@ router.get("/selected-cards", getAllSelectedCards);
 
 router.get("/admin-game", getAdminGameResult);
 
-router.get("/admin-results/:adminId", getAdminResults);
+router.get("/admin-results/:userId/:type", getAdminResults);
 
 router.post("/claim", claimWinnings);
 

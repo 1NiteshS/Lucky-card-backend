@@ -295,9 +295,6 @@ export const getUserCount = async (req, res) => {
   }
 };
 
-
-
-
 export const forgotPassword = async (req, res) => {
   try {
     const { email } = req.body;
@@ -366,46 +363,82 @@ export const getAllAdmins = async (req, res) => {
   }
 };
 
+// New
 export const getAdminProfile = async (req, res) => {
   try {
-    const { adminId } = req.params; // Get adminId from URL params
+    const { userId, type } = req.params;
+    const authenticatedUser = type === 'subAdmin' ? req.subAdmin : req.admin;
 
-    console.log("Requested AdminId:", adminId);
-    console.log("Authenticated Admin:", req.admin);
+    console.log(`Requested ${type} ID:`, userId);
+    console.log(`Authenticated ${type}:`, authenticatedUser);
 
-    const admin = await Admin.findOne({ adminId }).select(
-      "name email adminId wallet isVerified createdAt"
-    );
+    // Verify user type and authentication
+    if (!authenticatedUser) {
+      return res.status(401).json({
+        success: false,
+        error: "Authentication required"
+      });
+    }
 
-    if (!admin) {
+    // Select appropriate model and fields based on type
+    let user;
+    if (type === 'subAdmin') {
+      user = await SubAdmin.findOne({ subAdminId: userId }).select(
+        "name email subAdminId wallet isVerified createdAt commission createdBy device"
+      );
+    } else {
+      user = await Admin.findOne({ adminId: userId }).select(
+        "name email adminId wallet isVerified createdAt"
+      );
+    }
+
+    if (!user) {
       return res.status(404).json({
         success: false,
-        error: "Admin not found",
+        error: `${type === 'subAdmin' ? 'SubAdmin' : 'Admin'} not found`
       });
     }
-    if (admin.adminId !== req.admin.adminId) {
+
+    // Check if user is requesting their own profile
+    const userIdField = type === 'subAdmin' ? 'subAdminId' : 'adminId';
+    if (user[userIdField] !== authenticatedUser[userIdField]) {
       return res.status(403).json({
         success: false,
-        error: "You can only view your own profile",
+        error: "You can only view your own profile"
       });
     }
+
+    // Prepare response based on user type
+    const baseResponse = {
+      name: user.name,
+      email: user.email,
+      [userIdField]: user[userIdField],
+      wallet: user.wallet,
+      isVerified: user.isVerified,
+      joinedDate: user.createdAt
+    };
+
+    // Add subAdmin specific fields if applicable
+    const responseData = type === 'subAdmin' 
+      ? {
+          ...baseResponse,
+          commission: user.commission,
+          createdBy: user.createdBy,
+          device: user.device
+        }
+      : baseResponse;
 
     res.status(200).json({
       success: true,
-      data: {
-        name: admin.name,
-        email: admin.email,
-        adminId: admin.adminId,
-        wallet: admin.wallet,
-        isVerified: admin.isVerified,
-        joinedDate: admin.createdAt,
-      },
+      userType: type,
+      data: responseData
     });
+
   } catch (error) {
-    console.error("Error fetching admin profile:", error);
+    console.error(`Error fetching ${req.params.type} profile:`, error);
     res.status(500).json({
       success: false,
-      error: "Internal server error",
+      error: "Internal server error"
     });
   }
 };
@@ -762,12 +795,7 @@ async function getAdminGameData(adminId, from, to) {
   return { games, selectedCards, admin, adminGameResults };
 }
 
-async function calculateAdminGameTotals(
-  games,
-  selectedCards,
-  admin,
-  adminGameResults
-) {
+async function calculateAdminGameTotals(games,admin,adminGameResults) {
   let totalBetAmount = 0;
   let totalWinAmount = 0;
   let totalClaimedAmount = 0;
@@ -910,27 +938,6 @@ export const setCommission = async (req, res) => {
 };
 
 // New
-// export const getSubAdminByAdmin = async (req, res) => {
-//   try {
-//     const { adminId } = req.params;
-
-//     //check if the admin exists
-//     const admin = await Admin.findOne({ adminId });
-//     if (!admin) {
-//       return res.status(404).json({message: "Admin not found"});
-//     }
-
-//     // Fetch the subadmins created by this admin
-//     const subadmins = await SubAdmin.find({ createdBy: adminId });
-
-//     res.status(200).json( subadmins )
-    
-//   } catch (error) {
-//     console.error(error);
-//     res.status(500).json({message: "Server Error"});
-//   }
-// }
-
 export const getSubAdminByAdmin = async (req, res) => {
   try {
     const { adminId } = req.params;
@@ -958,3 +965,45 @@ export const getSubAdminByAdmin = async (req, res) => {
     res.status(500).json({message: "Server Error"});
   }
 };
+
+// New
+export const resetSubAdminLogin = async (req, res) => {
+  try {
+      const { subAdminId } = req.params;
+
+      // Check if subAdminId is provided
+      if (!subAdminId) {
+          return res.status(400).json({
+              success: false,
+              message: "SubAdmin ID is required"
+          });
+      }
+
+      // Find and update the SubAdmin's login status
+      const updatedSubAdmin = await SubAdmin.findOneAndUpdate(
+          { subAdminId: subAdminId },
+          { isLoggedIn: false },
+          { new: true }
+      );
+
+      // If SubAdmin not found
+      if (!updatedSubAdmin) {
+          return res.status(404).json({
+              success: false,
+              message: "SubAdmin not found"
+          });
+      }
+
+      return res.status(200).json({
+          success: true,
+          message: "SubAdmin login status reset successfully"
+      });
+
+  } catch (error) {
+      return res.status(500).json({
+          success: false,
+          message: "Error in resetting SubAdmin login status",
+          error: error.message
+      });
+  }
+}

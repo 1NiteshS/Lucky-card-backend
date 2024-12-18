@@ -18,6 +18,7 @@ import {
   setCommission,
   getSubAdminByAdmin,
   dashLogin,
+  resetSubAdminLogin,
 } from "../controllers/adminController.js";
 import { authAdmin, authSuperAdmin } from "../middleware/auth.js";
 import {
@@ -26,6 +27,7 @@ import {
   getTotalWinnings,
 } from "../controllers/cardController.js";
 import { searchAll } from "../controllers/searchController.js";
+import { resetSubPassword, } from "../controllers/subAdminController.js"
 
 const router = express.Router();
 
@@ -36,13 +38,13 @@ router.post("/verify-otp", verifyOTP);
 router.post("/forgot-password", forgotPassword);
 router.post("/reset-password", resetPassword);
 router.get("/all-admins", getAllAdmins);
-router.get("/profile/:adminId", authAdmin, getAdminProfile);
+router.get("/profile/:userId/:type", getAdminProfile);
 router.get("/current-game", getCurrentGame);
 router.post("/update-password", updatePassword);
 router.post("/postAllAdminWinnings/:adminId", postAllAdminWinnings);
 router.get("/winnings/:adminId", authAdmin, getAdminWinnings);
 
-router.get("/admin-game-results/:adminId",authAdmin,getAdminGameResultsForAdmin);
+router.get("/admin-game-results/:userId/:type",getAdminGameResultsForAdmin);
 
 router.get("/search-result", searchAll);
 
@@ -62,5 +64,9 @@ router.post("/set-commission", setCommission);
 router.get("/subadmins/:adminId", getSubAdminByAdmin);
 // New
 router.post('/dashLogin', dashLogin)
+// New
+router.get('/subadmin/reset-login/:subAdminId', resetSubAdminLogin);
+// New
+router.post('/subadmin/reset-password/:subAdminId', resetSubPassword);
 
 export default router;
