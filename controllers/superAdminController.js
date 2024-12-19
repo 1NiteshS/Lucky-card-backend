@@ -45,6 +45,7 @@ export const getAllAdmins = async (req, res) => {
       email: admin.email,
       creationDate: admin.createdAt,
       commission : admin.commission,
+      device: admin.device,
       password: admin.password.replace(/./g, "*").slice(0, 10) + "...",
       walletBalance: admin.wallet,
     }));
