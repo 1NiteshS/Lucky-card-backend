@@ -987,154 +987,136 @@ const createEmailContent = (adminName, subAdminName, amount) => {
 // };
 
 export const transferMoney = async (req, res) => {
-    const { adminId, subAdminId, amount } = req.body;
+  const { adminId, subAdminId, amount } = req.body;
 
-    // Input validation
-    if (!adminId || !subAdminId || !amount) {
-        return res.status(400).json({ message: "All fields are required" });
-    }
+  // Input validation
+  if (!adminId || !subAdminId || !amount) {
+      return res.status(400).json({ message: "All fields are required" });
+  }
 
-    if (amount <= 0) {
-        return res.status(400).json({ message: "Amount should be greater than 0" });
-    }
+  if (amount <= 0) {
+      return res.status(400).json({ message: "Amount should be greater than 0" });
+  }
 
-    const session = await mongoose.startSession();
-    session.startTransaction();
+  try {
+      // Fetch the admin
+      const admin = await Admin.findOne({ adminId });
+      if (!admin) {
+          return res.status(404).json({ message: "Admin not found" });
+      }
 
-    try {
-        // Fetch the admin
-        const admin = await Admin.findOne({ adminId }).session(session);
-        if (!admin) {
-            await session.abortTransaction();
-            return res.status(404).json({ message: "Admin not found" });
-        }
+      // Check if admin has enough balance
+      if (admin.wallet < amount) {
+          return res.status(400).json({ message: "Insufficient balance in Admin's wallet" });
+      }
 
-        // Check if admin has enough balance
-        if (admin.wallet < amount) {
-            await session.abortTransaction();
-            return res.status(400).json({ message: "Insufficient balance in Admin's wallet" });
-        }
+      // Fetch the sub-admin
+      const subAdmin = await SubAdmin.findOne({ subAdminId });
+      if (!subAdmin) {
+          return res.status(404).json({ message: "SubAdmin not found" });
+      }
 
-        // Fetch the sub-admin
-        const subAdmin = await SubAdmin.findOne({ subAdminId }).session(session);
-        if (!subAdmin) {
-            await session.abortTransaction();
-            return res.status(404).json({ message: "SubAdmin not found" });
-        }
+      // Store initial balances
+      const adminBalanceBefore = admin.wallet;
+      const subAdminBalanceBefore = subAdmin.wallet;
 
-        // Store initial balances
-        const adminBalanceBefore = admin.wallet;
-        const subAdminBalanceBefore = subAdmin.wallet;
+      // Update wallets
+      admin.wallet -= amount;
+      subAdmin.wallet += amount;
 
-        // Update wallets
-        admin.wallet -= amount;
-        subAdmin.wallet += amount;
+      // Save changes
+      await admin.save();
+      await subAdmin.save();
 
-        // Save changes
-        await admin.save({ session });
-        await subAdmin.save({ session });
+      // Create transaction history
+      const transaction = new TransactionHistory({
+          adminId,
+          subAdminId,
+          amount,
+          transactionType: 'TRANSFER',
+          status: 'SUCCESS',
+          adminBalanceBefore,
+          adminBalanceAfter: admin.wallet,
+          subAdminBalanceBefore,
+          subAdminBalanceAfter: subAdmin.wallet
+      });
 
-        // Create transaction history
-        const transaction = new TransactionHistory({
-            adminId,
-            subAdminId,
-            amount,
-            transactionType: 'TRANSFER',
-            status: 'SUCCESS',
-            adminBalanceBefore,
-            adminBalanceAfter: admin.wallet,
-            subAdminBalanceBefore,
-            subAdminBalanceAfter: subAdmin.wallet
-        });
+      await transaction.save();
 
-        await transaction.save({ session });
+      // Send email notification
+      try {
+          const emailContent = createEmailContent(
+              admin.name || admin.adminId,
+              subAdmin.name || subAdmin.subAdminId,
+              amount
+          );
 
-        // Commit the transaction
-        await session.commitTransaction();
+          transporter.sendMail({
+              from: process.env.EMAIL_USER,
+              to: [admin.email, subAdmin.email],
+              subject: emailContent.subject,
+              html: emailContent.html
+          });
 
-        // Send email notification
-        try {
-            const emailContent = createEmailContent(
-                admin.name || admin.adminId,
-                subAdmin.name || subAdmin.subAdminId,
-                amount
-            );
+          console.log('Transfer notification emails sent successfully');
+      } catch (emailError) {
+          console.error('Error sending email notification:', emailError);
+      }
 
-            await transporter.sendMail({
-                from: process.env.EMAIL_USER,
-                to: [admin.email, subAdmin.email],
-                subject: emailContent.subject,
-                html: emailContent.html
-            });
+      return res.status(200).json({
+          message: "Money transferred successfully",
+          adminWallet: admin.wallet,
+          subAdminWallet: subAdmin.wallet,
+          transactionId: transaction._id
+      });
+  } catch (error) {
+      console.error("Error during wallet transfer:", error);
+      return res.status(500).json({ message: "Internal server error" });
+  }
+};
 
-            console.log('Transfer notification emails sent successfully');
-        } catch (emailError) {
-            console.error('Error sending email notification:', emailError);
-        }
-
-        return res.status(200).json({
-            message: "Money transferred successfully",
-            adminWallet: admin.wallet,
-            subAdminWallet: subAdmin.wallet,
-            transactionId: transaction._id
-        });
-    } catch (error) {
-        await session.abortTransaction();
-        console.error("Error during wallet transfer:", error);
-        return res.status(500).json({ message: "Internal server error" });
-    } finally {
-        session.endSession();
-    }
-}
 
 export const getTransactionHistory = async (req, res) => {
-    try {
-        const { 
-            adminId, 
-            subAdminId, 
-            startDate, 
-            endDate, 
-            page = 1, 
-            limit = 10 
-        } = req.query;
+  try {
+      console.log("Request Body:", req.body); // Debugging the body data
 
-        const query = {};
-        
-        // Add filters if provided
-        if (adminId) query.adminId = adminId;
-        if (subAdminId) query.subAdminId = subAdminId;
-        if (startDate || endDate) {
-            query.createdAt = {};
-            if (startDate) query.createdAt.$gte = new Date(startDate);
-            if (endDate) query.createdAt.$lte = new Date(endDate);
-        }
+      // Fetch adminId from the request body
+      const { adminId, page = 1, limit = 10 } = req.body;
 
-        // Calculate skip value for pagination
-        const skip = (page - 1) * limit;
+      if (!adminId) {
+          return res.status(400).json({ message: "Admin ID is missing in the request body" });
+      }
 
-        // Get transactions with pagination
-        const [transactions, total] = await Promise.all([
-            TransactionHistory.find(query)
-                .sort({ createdAt: -1 })
-                .skip(skip)
-                .limit(Number(limit)),
-            TransactionHistory.countDocuments(query)
-        ]);
+      // Create a query to filter by adminId
+      const query = { adminId };
 
-        return res.status(200).json({
-            transactions,
-            pagination: {
-                currentPage: Number(page),
-                totalPages: Math.ceil(total / limit),
-                totalRecords: total,
-                limit: Number(limit)
-            }
-        });
-    } catch (error) {
-        console.error("Error fetching transaction history:", error);
-        return res.status(500).json({ message: "Internal server error" });
-    }
-}
+      // Calculate skip value for pagination
+      const skip = (page - 1) * limit;
+
+      // Fetch transactions and total count
+      const [transactions, total] = await Promise.all([
+          TransactionHistory.find(query)
+              .sort({ createdAt: -1 })
+              .skip(skip)
+              .limit(Number(limit)),
+          TransactionHistory.countDocuments(query),
+      ]);
+
+      return res.status(200).json({
+          transactions,
+          pagination: {
+              currentPage: Number(page),
+              totalPages: Math.ceil(total / limit),
+              totalRecords: total,
+              limit: Number(limit),
+          },
+      });
+  } catch (error) {
+      console.error("Error fetching transaction history:", error);
+      return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
 
 
 // New
