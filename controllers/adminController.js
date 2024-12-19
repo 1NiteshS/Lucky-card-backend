@@ -11,6 +11,7 @@ import UserCount  from '../models/UserCount.js';
 import AdminGameResult from '../models/AdminGameResult.js';
 import { getIO } from '../socket/sockectServer.js';
 import SubAdmin from '../models/SubAdmin.js'; // Add this import
+import  nodemailer from 'nodemailer';
 
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -19,7 +20,7 @@ const generateOTP = () => {
 // New
 export const create = async (req, res) => {
   try {
-    const { name, email, password } = req.body;
+    const { name, email, password, device } = req.body;
 
     // Check if admin already exists with this email
     const existingAdmin = await Admin.findOne({ email });
@@ -36,6 +37,7 @@ export const create = async (req, res) => {
     const admin = new Admin({
       name,
       email,
+      device,
       password: hashedPassword,
       adminId,
     });
@@ -49,6 +51,7 @@ export const create = async (req, res) => {
       admin: {
         name: admin.name,
         email: admin.email,
+        device: admin.device, 
         adminId: admin.adminId,
       },
     });
@@ -84,19 +87,32 @@ export const verifyOTP = async (req, res) => {
 // New
 export const dashLogin = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, device } = req.body;
+
     const admin = await Admin.findOne({ email });
+    
+     // Check if device is provided
+    if (!device) {
+      return res.status(400).send({ error: "Device information is required" });
+    }
+
+    // Check if device is a phone
+    if (admin.device.toLowerCase() !== device.toLowerCase()) {
+      return res.status(403).send({ error: "Login is only allowed from phone devices" });
+    }
 
     if (!admin || !(await bcrypt.compare(password, admin.password))) {
       return res.status(401).send({ error: "Invalid login credentials" });
     }
 
     const token = jwt.sign({ _id: admin._id }, process.env.JWT_SECRET);
+    
     res.send({ 
       token, 
       adminId: admin.adminId,
       wallet: admin.wallet,
       name: admin.name,
+      device: device
     });
   } catch (error) {
     res.status(400).send(error);
@@ -106,8 +122,8 @@ export const dashLogin = async (req, res) => {
 // New
 export const login = async (req, res) => {
   try {
-      const { email, password } = req.body;
-      
+      const { email, password, device } = req.body;
+
       // Find admin
       const admin = await Admin.findOne({ email });
       if (!admin) {
@@ -117,17 +133,32 @@ export const login = async (req, res) => {
           });
       }
 
-       // Check if user is already logged in
-      if (admin.isLoggedIn) {
+       // Check if device info is provided
+      if (!device) {
         return res.status(400).json({
-          success: false,
-          message: 'You are already logged in from another device. Please logout first.'
+            success: false,
+            message: 'Device information is required'
         });
+    }
+
+    // Check if device is PC
+    if (admin.device.toLowerCase() !== device.toLowerCase()) {
+        return res.status(403).json({
+            success: false,
+            message: 'Login is only allowed from PC devices'
+        });
+    }
+
+      // Check if user is already logged in
+      if (admin.isLoggedIn) {
+          return res.status(400).json({
+              success: false,
+              message: 'You are already logged in from another device. Please logout first.'
+          });
       }
 
       // Check password
       const isPasswordMatch = await bcrypt.compare(password, admin.password);
-
       if (!isPasswordMatch) {
           return res.status(400).json({ 
               success: false, 
@@ -137,6 +168,7 @@ export const login = async (req, res) => {
 
       // Update admin login status
       admin.isLoggedIn = true;
+      admin.lastLoginDevice = device; // Optional: track the device type
       await admin.save();
 
       // Ensure a record exists for today
@@ -190,6 +222,7 @@ export const login = async (req, res) => {
           adminId: admin.adminId,
           wallet: admin.wallet,
           name: admin.name,
+          device: device,
           loggedInUsers: userCount.loggedInUsers,
           totalLogins: userCount.totalLogins,
           uniqueUsers: userCount.uniqueUsers.length
@@ -851,7 +884,34 @@ async function calculateAdminGameTotals(games,admin,adminGameResults) {
   };
 }
 
+//  New
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+      user: process.env.EMAIL_USER, // Add these to your .env file
+      pass: process.env.EMAIL_PASS
+  }
+});
+
+const createEmailContent = (adminName, subAdminName, amount) => {
+  return {
+      subject: 'Money Transfer Notification',
+      html: `
+          <h2>Money Transfer Details</h2>
+          <p>A money transfer has been completed successfully.</p>
+          <ul>
+              <li><strong>From Admin:</strong> ${adminName}</li>
+              <li><strong>To Sub-Admin:</strong> ${subAdminName}</li>
+              <li><strong>Amount Transferred:</strong> ₹${amount}</li>
+          </ul>
+          <p>This is an automated notification. Please do not reply to this email.</p>
+      `
+  };
+};
+
+
 // New
+// Main transfer function
 export const transferMoney = async (req, res) => {
   const { adminId, subAdminId, amount } = req.body;
 
@@ -889,6 +949,28 @@ export const transferMoney = async (req, res) => {
       // Save changes
       await admin.save();
       await subAdmin.save();
+
+      // Send email notification
+      try {
+          const emailContent = createEmailContent(
+              admin.name || admin.adminId,
+              subAdmin.name || subAdmin.subAdminId,
+              amount
+          );
+
+          // Send email to both admin and sub-admin
+          await transporter.sendMail({
+              from: process.env.EMAIL_USER,
+              to: [admin.email, subAdmin.email], // Assuming email fields exist in your models
+              subject: emailContent.subject,
+              html: emailContent.html
+          });
+
+          console.log('Transfer notification emails sent successfully');
+      } catch (emailError) {
+          console.error('Error sending email notification:', emailError);
+          // Note: We don't want to fail the transfer if email fails
+      }
 
       res.status(200).json({
           message: "Money transferred successfully",

@@ -56,13 +56,6 @@ export const login = async (req, res) => {
   try {
     const { email, password, device } = req.body;
 
-    // Validate device type
-    if (!["Phone", "PC"].includes(device)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid device type. Please provide 'Phone' or 'PC'.",
-      });
-    }
 
     // Find admin
     const admin = await SubAdmin.findOne({ email });
@@ -71,6 +64,14 @@ export const login = async (req, res) => {
         success: false,
         message: "Admin not found",
       });
+    }
+
+      // Check if device is PC
+      if (admin.device.toLowerCase() !== device.toLowerCase()) {
+        return res.status(403).json({
+            success: false,
+            message: 'Login is only allowed from Phone devices'
+        });
     }
 
     // Check if the user is already logged in from another device type
