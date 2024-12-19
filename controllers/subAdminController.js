@@ -7,7 +7,7 @@ import UserCount from "../models/UserCount.js";
 // New
 export const create = async (req, res) => {
   try {
-    const { name, email, password, device } = req.body;
+    const { name, email, password } = req.body;
 
     // Assuming logged-in Admin's ID is available in `req.admin.adminId`
     const adminId = req.admin.adminId;
@@ -29,7 +29,6 @@ export const create = async (req, res) => {
       email,
       password: hashedPassword,
       subAdminId,
-      device,
       createdBy: adminId, // Track the creator Admin
     });
 
@@ -42,7 +41,6 @@ export const create = async (req, res) => {
       subAdmin: {
         name: subAdmin.name,
         email: subAdmin.email,
-        device: subAdmin.device,
         createdBy: subAdmin.createdBy,
       },
     });

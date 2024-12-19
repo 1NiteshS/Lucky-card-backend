@@ -394,6 +394,7 @@ export const getAllAdmins = async (req, res) => {
       creationDate: admin.createdAt,
       password: admin.password.replace(/./g, "*").slice(0, 10) + "...",
       walletBalance: admin.wallet,
+      device: admin.device,
     }));
 
     res.status(200).json(adminData);
@@ -454,6 +455,7 @@ export const getAdminProfile = async (req, res) => {
       email: user.email,
       [userIdField]: user[userIdField],
       wallet: user.wallet,
+      device: user.device,
       isVerified: user.isVerified,
       joinedDate: user.createdAt
     };
