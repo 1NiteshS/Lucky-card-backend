@@ -183,6 +183,8 @@ export const login = async (req, res) => {
           token, 
           type: admin.type,
           adminId: admin.adminId,
+          wallet: admin.wallet,
+          name: admin.name,
           loggedInUsers: userCount.loggedInUsers,
           totalLogins: userCount.totalLogins,
           uniqueUsers: userCount.uniqueUsers.length
