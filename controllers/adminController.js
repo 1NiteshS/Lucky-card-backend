@@ -12,6 +12,7 @@ import AdminGameResult from '../models/AdminGameResult.js';
 import { getIO } from '../socket/sockectServer.js';
 import SubAdmin from '../models/SubAdmin.js'; // Add this import
 import  nodemailer from 'nodemailer';
+import TransactionHistory from '../models/TransactionHistory.js';
 
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -914,76 +915,227 @@ const createEmailContent = (adminName, subAdminName, amount) => {
 
 // New
 // Main transfer function
+// export const transferMoney = async (req, res) => {
+//   const { adminId, subAdminId, amount } = req.body;
+
+//   // Input validation
+//   if (!adminId || !subAdminId || !amount) {
+//       return res.status(400).json({ message: "All fields are required" });
+//   }
+
+//   if (amount <= 0) {
+//       return res.status(400).json({ message: "Amount should be greater than 0" });
+//   }
+
+//   try {
+//       // Fetch the admin
+//       const admin = await Admin.findOne({ adminId });
+//       if (!admin) {
+//           return res.status(404).json({ message: "Admin not found" });
+//       }
+
+//       // Check if admin has enough balance
+//       if (admin.wallet < amount) {
+//           return res.status(400).json({ message: "Insufficient balance in Admin's wallet" });
+//       }
+
+//       // Fetch the sub-admin
+//       const subAdmin = await SubAdmin.findOne({ subAdminId });
+//       if (!subAdmin) {
+//           return res.status(404).json({ message: "SubAdmin not found" });
+//       }
+
+//       // Update wallets
+//       admin.wallet -= amount;
+//       subAdmin.wallet += amount;
+
+//       // Save changes
+//       await admin.save();
+//       await subAdmin.save();
+
+//       // Send email notification
+//       try {
+//           const emailContent = createEmailContent(
+//               admin.name || admin.adminId,
+//               subAdmin.name || subAdmin.subAdminId,
+//               amount
+//           );
+
+//           // Send email to both admin and sub-admin
+//           await transporter.sendMail({
+//               from: process.env.EMAIL_USER,
+//               to: [admin.email, subAdmin.email], // Assuming email fields exist in your models
+//               subject: emailContent.subject,
+//               html: emailContent.html
+//           });
+
+//           console.log('Transfer notification emails sent successfully');
+//       } catch (emailError) {
+//           console.error('Error sending email notification:', emailError);
+//           // Note: We don't want to fail the transfer if email fails
+//       }
+
+//       res.status(200).json({
+//           message: "Money transferred successfully",
+//           adminWallet: admin.wallet,
+//           subAdminWallet: subAdmin.wallet,
+//       });
+//   } catch (error) {
+//       console.error("Error during wallet transfer:", error);
+//       res.status(500).json({ message: "Internal server error" });
+//   }
+// };
+
 export const transferMoney = async (req, res) => {
-  const { adminId, subAdminId, amount } = req.body;
+    const { adminId, subAdminId, amount } = req.body;
 
-  // Input validation
-  if (!adminId || !subAdminId || !amount) {
-      return res.status(400).json({ message: "All fields are required" });
-  }
+    // Input validation
+    if (!adminId || !subAdminId || !amount) {
+        return res.status(400).json({ message: "All fields are required" });
+    }
 
-  if (amount <= 0) {
-      return res.status(400).json({ message: "Amount should be greater than 0" });
-  }
+    if (amount <= 0) {
+        return res.status(400).json({ message: "Amount should be greater than 0" });
+    }
 
-  try {
-      // Fetch the admin
-      const admin = await Admin.findOne({ adminId });
-      if (!admin) {
-          return res.status(404).json({ message: "Admin not found" });
-      }
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-      // Check if admin has enough balance
-      if (admin.wallet < amount) {
-          return res.status(400).json({ message: "Insufficient balance in Admin's wallet" });
-      }
+    try {
+        // Fetch the admin
+        const admin = await Admin.findOne({ adminId }).session(session);
+        if (!admin) {
+            await session.abortTransaction();
+            return res.status(404).json({ message: "Admin not found" });
+        }
 
-      // Fetch the sub-admin
-      const subAdmin = await SubAdmin.findOne({ subAdminId });
-      if (!subAdmin) {
-          return res.status(404).json({ message: "SubAdmin not found" });
-      }
+        // Check if admin has enough balance
+        if (admin.wallet < amount) {
+            await session.abortTransaction();
+            return res.status(400).json({ message: "Insufficient balance in Admin's wallet" });
+        }
 
-      // Update wallets
-      admin.wallet -= amount;
-      subAdmin.wallet += amount;
+        // Fetch the sub-admin
+        const subAdmin = await SubAdmin.findOne({ subAdminId }).session(session);
+        if (!subAdmin) {
+            await session.abortTransaction();
+            return res.status(404).json({ message: "SubAdmin not found" });
+        }
 
-      // Save changes
-      await admin.save();
-      await subAdmin.save();
+        // Store initial balances
+        const adminBalanceBefore = admin.wallet;
+        const subAdminBalanceBefore = subAdmin.wallet;
 
-      // Send email notification
-      try {
-          const emailContent = createEmailContent(
-              admin.name || admin.adminId,
-              subAdmin.name || subAdmin.subAdminId,
-              amount
-          );
+        // Update wallets
+        admin.wallet -= amount;
+        subAdmin.wallet += amount;
 
-          // Send email to both admin and sub-admin
-          await transporter.sendMail({
-              from: process.env.EMAIL_USER,
-              to: [admin.email, subAdmin.email], // Assuming email fields exist in your models
-              subject: emailContent.subject,
-              html: emailContent.html
-          });
+        // Save changes
+        await admin.save({ session });
+        await subAdmin.save({ session });
 
-          console.log('Transfer notification emails sent successfully');
-      } catch (emailError) {
-          console.error('Error sending email notification:', emailError);
-          // Note: We don't want to fail the transfer if email fails
-      }
+        // Create transaction history
+        const transaction = new TransactionHistory({
+            adminId,
+            subAdminId,
+            amount,
+            transactionType: 'TRANSFER',
+            status: 'SUCCESS',
+            adminBalanceBefore,
+            adminBalanceAfter: admin.wallet,
+            subAdminBalanceBefore,
+            subAdminBalanceAfter: subAdmin.wallet
+        });
 
-      res.status(200).json({
-          message: "Money transferred successfully",
-          adminWallet: admin.wallet,
-          subAdminWallet: subAdmin.wallet,
-      });
-  } catch (error) {
-      console.error("Error during wallet transfer:", error);
-      res.status(500).json({ message: "Internal server error" });
-  }
-};
+        await transaction.save({ session });
+
+        // Commit the transaction
+        await session.commitTransaction();
+
+        // Send email notification
+        try {
+            const emailContent = createEmailContent(
+                admin.name || admin.adminId,
+                subAdmin.name || subAdmin.subAdminId,
+                amount
+            );
+
+            await transporter.sendMail({
+                from: process.env.EMAIL_USER,
+                to: [admin.email, subAdmin.email],
+                subject: emailContent.subject,
+                html: emailContent.html
+            });
+
+            console.log('Transfer notification emails sent successfully');
+        } catch (emailError) {
+            console.error('Error sending email notification:', emailError);
+        }
+
+        return res.status(200).json({
+            message: "Money transferred successfully",
+            adminWallet: admin.wallet,
+            subAdminWallet: subAdmin.wallet,
+            transactionId: transaction._id
+        });
+    } catch (error) {
+        await session.abortTransaction();
+        console.error("Error during wallet transfer:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    } finally {
+        session.endSession();
+    }
+}
+
+export const getTransactionHistory = async (req, res) => {
+    try {
+        const { 
+            adminId, 
+            subAdminId, 
+            startDate, 
+            endDate, 
+            page = 1, 
+            limit = 10 
+        } = req.query;
+
+        const query = {};
+        
+        // Add filters if provided
+        if (adminId) query.adminId = adminId;
+        if (subAdminId) query.subAdminId = subAdminId;
+        if (startDate || endDate) {
+            query.createdAt = {};
+            if (startDate) query.createdAt.$gte = new Date(startDate);
+            if (endDate) query.createdAt.$lte = new Date(endDate);
+        }
+
+        // Calculate skip value for pagination
+        const skip = (page - 1) * limit;
+
+        // Get transactions with pagination
+        const [transactions, total] = await Promise.all([
+            TransactionHistory.find(query)
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(Number(limit)),
+            TransactionHistory.countDocuments(query)
+        ]);
+
+        return res.status(200).json({
+            transactions,
+            pagination: {
+                currentPage: Number(page),
+                totalPages: Math.ceil(total / limit),
+                totalRecords: total,
+                limit: Number(limit)
+            }
+        });
+    } catch (error) {
+        console.error("Error fetching transaction history:", error);
+        return res.status(500).json({ message: "Internal server error" });
+    }
+}
+
 
 // New
 export const setCommission = async (req, res) => {

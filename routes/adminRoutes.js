@@ -14,11 +14,13 @@ import {
   getAdminWinnings,
   getAdminGameTotalInfo,
   logout,
-  transferMoney,
+  // transferMoney,
   setCommission,
   getSubAdminByAdmin,
   dashLogin,
   resetSubAdminLogin,
+  transferMoney,
+  getTransactionHistory,
 } from "../controllers/adminController.js";
 import { authAdmin, authSuperAdmin } from "../middleware/auth.js";
 import {
@@ -57,7 +59,13 @@ router.post("/claim-all/:adminId", claimAllWinnings);
 router.get("/game-total-info/:adminId", getAdminGameTotalInfo);
 
 // New
-router.post("/transfer-money", transferMoney);
+// router.post("/transfer-money", transferMoney);
+
+router.post('/transfer-money', transferMoney);
+
+router.get('/transactions', getTransactionHistory);
+
+
 // New
 router.post("/set-commission", setCommission);
 // New
