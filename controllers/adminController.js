@@ -1044,24 +1044,24 @@ export const transferMoney = async (req, res) => {
       await transaction.save();
 
       // Send email notification
-      try {
-          const emailContent = createEmailContent(
-              admin.name || admin.adminId,
-              subAdmin.name || subAdmin.subAdminId,
-              amount
-          );
+      // try {
+      //     const emailContent = createEmailContent(
+      //         admin.name || admin.adminId,
+      //         subAdmin.name || subAdmin.subAdminId,
+      //         amount
+      //     );
 
-          transporter.sendMail({
-              from: process.env.EMAIL_USER,
-              to: [admin.email, subAdmin.email],
-              subject: emailContent.subject,
-              html: emailContent.html
-          });
+      //     transporter.sendMail({
+      //         from: process.env.EMAIL_USER,
+      //         to: [admin.email, subAdmin.email],
+      //         subject: emailContent.subject,
+      //         html: emailContent.html
+      //     });
 
-          console.log('Transfer notification emails sent successfully');
-      } catch (emailError) {
-          console.error('Error sending email notification:', emailError);
-      }
+      //     console.log('Transfer notification emails sent successfully');
+      // } catch (emailError) {
+      //     console.error('Error sending email notification:', emailError);
+      // }
 
       return res.status(200).json({
           message: "Money transferred successfully",
