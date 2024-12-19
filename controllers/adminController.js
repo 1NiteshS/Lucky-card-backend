@@ -92,7 +92,12 @@ export const dashLogin = async (req, res) => {
     }
 
     const token = jwt.sign({ _id: admin._id }, process.env.JWT_SECRET);
-    res.send({ token, adminId: admin.adminId });
+    res.send({ 
+      token, 
+      adminId: admin.adminId,
+      wallet: admin.wallet,
+      name: admin.name,
+    });
   } catch (error) {
     res.status(400).send(error);
   }
