@@ -34,7 +34,9 @@ import { resetSubPassword, } from "../controllers/subAdminController.js"
 const router = express.Router();
 
 router.post("/create", authSuperAdmin, create);
+// New
 router.post("/login", login);
+// New
 router.post("/logout",authAdmin, logout);
 router.post("/verify-otp", verifyOTP);
 router.post("/forgot-password", forgotPassword);
@@ -59,13 +61,9 @@ router.post("/claim-all/:adminId", claimAllWinnings);
 router.get("/game-total-info/:adminId", getAdminGameTotalInfo);
 
 // New
-// router.post("/transfer-money", transferMoney);
-
 router.post('/transfer-money', transferMoney);
-
+// New
 router.get('/transactions', getTransactionHistory);
-
-
 // New
 router.post("/set-commission", setCommission);
 // New

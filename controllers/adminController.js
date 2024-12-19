@@ -13,6 +13,7 @@ import { getIO } from '../socket/sockectServer.js';
 import SubAdmin from '../models/SubAdmin.js'; // Add this import
 import  nodemailer from 'nodemailer';
 import TransactionHistory from '../models/TransactionHistory.js';
+// require('dotenv').config();
 
 const generateOTP = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -888,14 +889,35 @@ async function calculateAdminGameTotals(games,admin,adminGameResults) {
 }
 
 //  New
-const transporter = nodemailer.createTransport({
-  service: 'gmail',
-  auth: {
-      user: process.env.EMAIL_USER, // Add these to your .env file
-      pass: process.env.EMAIL_PASS
+// Validate email credentials
+const validateEmailConfig = () => {
+  const { EMAIL_USER, EMAIL_PASSWORD } = process.env;
+  
+  if (!EMAIL_USER || !EMAIL_PASSWORD) {
+      throw new Error('Email credentials are not properly configured in .env file');
   }
-});
+  return true;
+};
 
+// Create email transporter with secure configuration
+const createTransporter = () => {
+  validateEmailConfig();
+  
+  return nodemailer.createTransport({
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false, // true for 465, false for other ports
+      auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD
+      },
+      tls: {
+          rejectUnauthorized: false
+      }
+  });
+};
+
+// Email template function
 const createEmailContent = (adminName, subAdminName, amount) => {
   return {
       subject: 'Money Transfer Notification',
@@ -906,86 +928,20 @@ const createEmailContent = (adminName, subAdminName, amount) => {
               <li><strong>From Admin:</strong> ${adminName}</li>
               <li><strong>To Sub-Admin:</strong> ${subAdminName}</li>
               <li><strong>Amount Transferred:</strong> ₹${amount}</li>
+              <li><strong>Date:</strong> ${new Date().toLocaleString()}</li>
           </ul>
           <p>This is an automated notification. Please do not reply to this email.</p>
       `
   };
 };
 
+// Validate email function
+const isValidEmail = (email) => {
+  return email && typeof email === 'string' && 
+  email.includes('@') && email.includes('.');
+};
 
 // New
-// Main transfer function
-// export const transferMoney = async (req, res) => {
-//   const { adminId, subAdminId, amount } = req.body;
-
-//   // Input validation
-//   if (!adminId || !subAdminId || !amount) {
-//       return res.status(400).json({ message: "All fields are required" });
-//   }
-
-//   if (amount <= 0) {
-//       return res.status(400).json({ message: "Amount should be greater than 0" });
-//   }
-
-//   try {
-//       // Fetch the admin
-//       const admin = await Admin.findOne({ adminId });
-//       if (!admin) {
-//           return res.status(404).json({ message: "Admin not found" });
-//       }
-
-//       // Check if admin has enough balance
-//       if (admin.wallet < amount) {
-//           return res.status(400).json({ message: "Insufficient balance in Admin's wallet" });
-//       }
-
-//       // Fetch the sub-admin
-//       const subAdmin = await SubAdmin.findOne({ subAdminId });
-//       if (!subAdmin) {
-//           return res.status(404).json({ message: "SubAdmin not found" });
-//       }
-
-//       // Update wallets
-//       admin.wallet -= amount;
-//       subAdmin.wallet += amount;
-
-//       // Save changes
-//       await admin.save();
-//       await subAdmin.save();
-
-//       // Send email notification
-//       try {
-//           const emailContent = createEmailContent(
-//               admin.name || admin.adminId,
-//               subAdmin.name || subAdmin.subAdminId,
-//               amount
-//           );
-
-//           // Send email to both admin and sub-admin
-//           await transporter.sendMail({
-//               from: process.env.EMAIL_USER,
-//               to: [admin.email, subAdmin.email], // Assuming email fields exist in your models
-//               subject: emailContent.subject,
-//               html: emailContent.html
-//           });
-
-//           console.log('Transfer notification emails sent successfully');
-//       } catch (emailError) {
-//           console.error('Error sending email notification:', emailError);
-//           // Note: We don't want to fail the transfer if email fails
-//       }
-
-//       res.status(200).json({
-//           message: "Money transferred successfully",
-//           adminWallet: admin.wallet,
-//           subAdminWallet: subAdmin.wallet,
-//       });
-//   } catch (error) {
-//       console.error("Error during wallet transfer:", error);
-//       res.status(500).json({ message: "Internal server error" });
-//   }
-// };
-
 export const transferMoney = async (req, res) => {
   const { adminId, subAdminId, amount } = req.body;
 
@@ -1044,24 +1000,46 @@ export const transferMoney = async (req, res) => {
       await transaction.save();
 
       // Send email notification
-      // try {
-      //     const emailContent = createEmailContent(
-      //         admin.name || admin.adminId,
-      //         subAdmin.name || subAdmin.subAdminId,
-      //         amount
-      //     );
+      try {
+        // Create transporter for each email send
+        const transporter = createTransporter();
+        
+        const emailContent = createEmailContent(
+            admin.name || admin.adminId,
+            subAdmin.name || subAdmin.subAdminId,
+            amount
+        );
 
-      //     transporter.sendMail({
-      //         from: process.env.EMAIL_USER,
-      //         to: [admin.email, subAdmin.email],
-      //         subject: emailContent.subject,
-      //         html: emailContent.html
-      //     });
+        // Collect valid email addresses
+        const recipients = [];
+        if (isValidEmail(admin.email)) recipients.push(admin.email);
+        if (isValidEmail(subAdmin.email)) recipients.push(subAdmin.email);
 
-      //     console.log('Transfer notification emails sent successfully');
-      // } catch (emailError) {
-      //     console.error('Error sending email notification:', emailError);
-      // }
+        // Add default recipient if no valid emails found
+        if (recipients.length === 0) {
+            const defaultEmail = process.env.DEFAULT_NOTIFICATION_EMAIL || process.env.EMAIL_USER;
+            if (isValidEmail(defaultEmail)) {
+                recipients.push(defaultEmail);
+            } else {
+                throw new Error('No valid default email configured');
+            }
+        }
+
+        // Send email
+        if (recipients.length > 0) {
+            const info = await transporter.sendMail({
+                from: `"Money Transfer System" <${process.env.EMAIL_USER}>`,
+                to: recipients.join(', '),
+                subject: emailContent.subject,
+                html: emailContent.html
+            });
+            console.log('Transfer notification emails sent successfully to:', recipients);
+            console.log('Message ID:', info.messageId);
+        }
+    } catch (emailError) {
+        console.error('Error sending email notification:', emailError);
+        // Continue with the transaction even if email fails
+    }
 
       return res.status(200).json({
           message: "Money transferred successfully",
@@ -1075,11 +1053,9 @@ export const transferMoney = async (req, res) => {
   }
 };
 
-
+// New
 export const getTransactionHistory = async (req, res) => {
   try {
-      console.log("Request Body:", req.body); // Debugging the body data
-
       // Fetch adminId from the request body
       const { adminId, page = 1, limit = 10 } = req.body;
 
@@ -1116,8 +1092,6 @@ export const getTransactionHistory = async (req, res) => {
       return res.status(500).json({ message: "Internal server error" });
   }
 };
-
-
 
 // New
 export const setCommission = async (req, res) => {
