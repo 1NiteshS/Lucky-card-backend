@@ -39,7 +39,7 @@ export const authAdmin = async (req, res, next) => {
     const token = authHeader.includes('Bearer ') 
       ? authHeader.replace('Bearer ', '') 
       : authHeader;
-
+      
     // Verify token
     let decoded;
     try {
@@ -64,11 +64,8 @@ export const authAdmin = async (req, res, next) => {
     // Find admin with decoded ID
     const admin = await Admin.findOne({
       _id: decoded._id,
-      // Optional: Add additional checks if needed
-      // adminId: req.params.adminId, // Uncomment if you want to match adminId from params
-      isLoggedIn: true // Ensure admin is still logged in
     });
-
+    
     if (!admin) {
       return res.status(401).json({ 
         success: false, 
@@ -137,7 +134,7 @@ export const authSubAdmin = async (req, res, next) => {
       _id: decoded._id,
       // Optional: Add additional checks if needed
       // adminId: req.params.adminId, // Uncomment if you want to match adminId from params
-      isLoggedIn: true // Ensure admin is still logged in
+      // isLoggedIn: true // Ensure admin is still logged in
     });
 
     if (!admin) {
