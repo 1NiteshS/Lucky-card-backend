@@ -99,7 +99,7 @@ export const dashLogin = async (req, res) => {
 
     // Check if device is a phone
     if (admin.device.toLowerCase() !== device.toLowerCase()) {
-      return res.status(403).send({ error: "Login is only allowed from phone devices" });
+      return res.status(403).send({ error: "Login is only allowed from PC devices" });
     }
 
     if (!admin || !(await bcrypt.compare(password, admin.password))) {
@@ -143,10 +143,10 @@ export const login = async (req, res) => {
     }
 
     // Check if device is PC
-    if (admin.device.toLowerCase() !== device.toLowerCase()) {
+    if (admin.device.toLowerCase() !== "PC".toLowerCase()) {
         return res.status(403).json({
             success: false,
-            message: 'Login is only allowed from PC devices'
+            message: 'Login is only allowed from Phone devices'
         });
     }
 
@@ -1097,47 +1097,6 @@ export const transferMoney = async (req, res) => {
 };
 
 // New
-// export const getTransactionHistory = async (req, res) => {
-//   try {
-//       // Fetch adminId from the request params
-//       const { adminId } = req.body;
-
-//       // Fetch page and limit from the query string
-//       const { page = 1, limit = 10 } = req.query;
-
-//       if (!adminId) {
-//           return res.status(400).json({ message: "Admin ID is missing in the request params" });
-//       }
-
-//       // Create a query to filter by adminId
-//       const query = { adminId };
-
-//       // Calculate skip value for pagination
-//       const skip = (page - 1) * limit;
-
-//       // Fetch transactions and total count
-//       const [transactions, total] = await Promise.all([
-//           TransactionHistory.find(query)
-//               .sort({ createdAt: -1 })
-//               .skip(skip)
-//               .limit(Number(limit)),
-//           TransactionHistory.countDocuments(query),
-//       ]);
-
-//       return res.status(200).json({
-//           transactions,
-//           pagination: {
-//               currentPage: Number(page),
-//               totalPages: Math.ceil(total / limit),
-//               totalRecords: total,
-//               limit: Number(limit),
-//           },
-//       });
-//   } catch (error) {
-//       console.error("Error fetching transaction history:", error);
-//       return res.status(500).json({ message: "Internal server error" });
-//   }
-// };
 export const getTransactionHistory = async (req, res) => {
   try {
       const adminId = req.admin.adminId;
