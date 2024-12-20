@@ -652,7 +652,7 @@ export const getAllTransactionHistory = async (req, res) => {
       if (!Array.isArray(transactions)) {
           console.error("Invalid transactions format");
           throw new Error("Invalid data format");
-      }
+      } 
 
       // Send response in chunks if needed
       res.setHeader('Content-Type', 'application/json');
