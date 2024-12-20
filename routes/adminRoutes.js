@@ -71,7 +71,7 @@ router.get("/subadmins/:adminId", getSubAdminByAdmin);
 // New
 router.post('/dashLogin', dashLogin)
 // New
-router.get('/subadmin/reset-login/:subAdminId', resetSubAdminLogin);
+router.post('/subadmin/reset-login/:subAdminId', resetSubAdminLogin);
 // New
 router.post('/subadmin/reset-password/:subAdminId', resetSubPassword);
 

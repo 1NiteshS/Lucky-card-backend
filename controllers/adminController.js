@@ -1000,46 +1000,46 @@ export const transferMoney = async (req, res) => {
       await transaction.save();
 
       // Send email notification
-      try {
-        // Create transporter for each email send
-        const transporter = createTransporter();
+    //   try {
+    //     // Create transporter for each email send
+    //     const transporter = createTransporter();
         
-        const emailContent = createEmailContent(
-            admin.name || admin.adminId,
-            subAdmin.name || subAdmin.subAdminId,
-            amount
-        );
+    //     const emailContent = createEmailContent(
+    //         admin.name || admin.adminId,
+    //         subAdmin.name || subAdmin.subAdminId,
+    //         amount
+    //     );
 
-        // Collect valid email addresses
-        const recipients = [];
-        if (isValidEmail(admin.email)) recipients.push(admin.email);
-        if (isValidEmail(subAdmin.email)) recipients.push(subAdmin.email);
+    //     // Collect valid email addresses
+    //     const recipients = [];
+    //     if (isValidEmail(admin.email)) recipients.push(admin.email);
+    //     if (isValidEmail(subAdmin.email)) recipients.push(subAdmin.email);
 
-        // Add default recipient if no valid emails found
-        if (recipients.length === 0) {
-            const defaultEmail = process.env.DEFAULT_NOTIFICATION_EMAIL || process.env.EMAIL_USER;
-            if (isValidEmail(defaultEmail)) {
-                recipients.push(defaultEmail);
-            } else {
-                throw new Error('No valid default email configured');
-            }
-        }
+    //     // Add default recipient if no valid emails found
+    //     if (recipients.length === 0) {
+    //         const defaultEmail = process.env.DEFAULT_NOTIFICATION_EMAIL || process.env.EMAIL_USER;
+    //         if (isValidEmail(defaultEmail)) {
+    //             recipients.push(defaultEmail);
+    //         } else {
+    //             throw new Error('No valid default email configured');
+    //         }
+    //     }
 
-        // Send email
-        if (recipients.length > 0) {
-            const info = await transporter.sendMail({
-                from: `"Money Transfer System" <${process.env.EMAIL_USER}>`,
-                to: recipients.join(', '),
-                subject: emailContent.subject,
-                html: emailContent.html
-            });
-            console.log('Transfer notification emails sent successfully to:', recipients);
-            console.log('Message ID:', info.messageId);
-        }
-    } catch (emailError) {
-        console.error('Error sending email notification:', emailError);
-        // Continue with the transaction even if email fails
-    }
+    //     // Send email
+    //     if (recipients.length > 0) {
+    //         const info = await transporter.sendMail({
+    //             from: `"Money Transfer System" <${process.env.EMAIL_USER}>`,
+    //             to: recipients.join(', '),
+    //             subject: emailContent.subject,
+    //             html: emailContent.html
+    //         });
+    //         console.log('Transfer notification emails sent successfully to:', recipients);
+    //         console.log('Message ID:', info.messageId);
+    //     }
+    // } catch (emailError) {
+    //     console.error('Error sending email notification:', emailError);
+    //     // Continue with the transaction even if email fails
+    // }
 
       return res.status(200).json({
           message: "Money transferred successfully",
@@ -1056,11 +1056,14 @@ export const transferMoney = async (req, res) => {
 // New
 export const getTransactionHistory = async (req, res) => {
   try {
-      // Fetch adminId from the request body
-      const { adminId, page = 1, limit = 10 } = req.body;
+      // Fetch adminId from the request params
+      const { adminId } = req.body;
+
+      // Fetch page and limit from the query string
+      const { page = 1, limit = 10 } = req.query;
 
       if (!adminId) {
-          return res.status(400).json({ message: "Admin ID is missing in the request body" });
+          return res.status(400).json({ message: "Admin ID is missing in the request params" });
       }
 
       // Create a query to filter by adminId

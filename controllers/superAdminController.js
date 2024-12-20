@@ -8,6 +8,7 @@ import BetPercentage from "../models/BetPercentage.js";
 import AdminWinnings from "../models/AdminWinnings.js";
 import WalletTransaction from "../models/WalletTransaction.js";
 import AdminGameResult from "../models/AdminGameResult.js";
+import TransactionHistory from '../models/TransactionHistory.js';
 
 //New
 import SubAdmin from '../models/SubAdmin.js';
@@ -629,5 +630,47 @@ export const setAdminCommission = async (req, res) => {
       // Handle any unexpected errors
       console.error("Error while setting admin commission:", error);
       return res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+export const getAllTransactionHistory = async (req, res) => {
+  try {
+      // Basic query with proper error handling
+      let transactions;
+      try {
+          transactions = await TransactionHistory.find()
+              .select('-__v')  // Exclude version key
+              .sort({ createdAt: -1 })
+              .lean()
+              .exec();
+      } catch (dbError) {
+          console.error("Database query error:", dbError);
+          throw new Error("Database query failed");
+      }
+
+      // Validate transactions
+      if (!Array.isArray(transactions)) {
+          console.error("Invalid transactions format");
+          throw new Error("Invalid data format");
+      }
+
+      // Send response in chunks if needed
+      res.setHeader('Content-Type', 'application/json');
+      
+      const responseData = {
+          status: "success",
+          count: transactions.length,
+          transactions: transactions
+      };
+
+      // Send the response directly as an object
+      return res.status(200).json(responseData); // Express automatically handles the JSON stringify
+
+  } catch (error) {
+      console.error("Final error handler:", error.message);
+      return res.status(500).send({
+          status: "error",
+          message: error.message || "Internal server error"
+      });
   }
 };

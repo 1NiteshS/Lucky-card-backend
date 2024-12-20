@@ -15,7 +15,8 @@ import {
   getAdminWinnings,
   getSuperAdminGameTotalInfo,
   getAllSubAdmins,
-  setAdminCommission
+  setAdminCommission,
+  getAllTransactionHistory
 } from "../controllers/superAdminController.js";
 import { authSuperAdmin } from "../middleware/auth.js";
 import {
@@ -95,5 +96,8 @@ router.get('/getAllSubAdmins', getAllSubAdmins);
 
 // New
 router.post('/setAdminCommission',authSuperAdmin, setAdminCommission);
+
+// New
+router.get('/transactions', getAllTransactionHistory);
 
 export default router;
