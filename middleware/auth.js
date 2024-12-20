@@ -79,6 +79,7 @@ export const authAdmin = async (req, res, next) => {
     // Attach token and admin to request
     req.token = token;
     req.admin = admin;
+    req.adminId = admin.adminId;
 
     next();
   } catch (error) {

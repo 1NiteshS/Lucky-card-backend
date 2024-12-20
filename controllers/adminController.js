@@ -1140,8 +1140,8 @@ export const transferMoney = async (req, res) => {
 // };
 export const getTransactionHistory = async (req, res) => {
   try {
-      const adminId = req.admin.id; // JWT se decode kiya hua ID
-      
+      const adminId = req.admin.adminId;
+
       // Simply fetch all transactions for the admin, sorted by date
       const transactions = await TransactionHistory.find({ adminId })
           .sort({ createdAt: -1 });
@@ -1153,7 +1153,7 @@ export const getTransactionHistory = async (req, res) => {
   } catch (error) {
       return res.status(500).json({
           success: false,
-          message: 'Server error. Kuch der baad try kare.'
+          message: 'Server error. Please try again later.'
       });
   }
 };
