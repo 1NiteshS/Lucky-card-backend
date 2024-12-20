@@ -63,7 +63,7 @@ router.get("/game-total-info/:adminId", getAdminGameTotalInfo);
 // New
 router.post('/transfer-money', transferMoney);
 // New
-router.get('/transactions', getTransactionHistory);
+router.get('/transactions', authAdmin, getTransactionHistory);
 // New
 router.post("/set-commission", setCommission);
 // New

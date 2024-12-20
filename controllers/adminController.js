@@ -1097,45 +1097,64 @@ export const transferMoney = async (req, res) => {
 };
 
 // New
+// export const getTransactionHistory = async (req, res) => {
+//   try {
+//       // Fetch adminId from the request params
+//       const { adminId } = req.body;
+
+//       // Fetch page and limit from the query string
+//       const { page = 1, limit = 10 } = req.query;
+
+//       if (!adminId) {
+//           return res.status(400).json({ message: "Admin ID is missing in the request params" });
+//       }
+
+//       // Create a query to filter by adminId
+//       const query = { adminId };
+
+//       // Calculate skip value for pagination
+//       const skip = (page - 1) * limit;
+
+//       // Fetch transactions and total count
+//       const [transactions, total] = await Promise.all([
+//           TransactionHistory.find(query)
+//               .sort({ createdAt: -1 })
+//               .skip(skip)
+//               .limit(Number(limit)),
+//           TransactionHistory.countDocuments(query),
+//       ]);
+
+//       return res.status(200).json({
+//           transactions,
+//           pagination: {
+//               currentPage: Number(page),
+//               totalPages: Math.ceil(total / limit),
+//               totalRecords: total,
+//               limit: Number(limit),
+//           },
+//       });
+//   } catch (error) {
+//       console.error("Error fetching transaction history:", error);
+//       return res.status(500).json({ message: "Internal server error" });
+//   }
+// };
 export const getTransactionHistory = async (req, res) => {
   try {
-      // Fetch adminId from the request params
-      const { adminId } = req.body;
-
-      // Fetch page and limit from the query string
-      const { page = 1, limit = 10 } = req.query;
-
-      if (!adminId) {
-          return res.status(400).json({ message: "Admin ID is missing in the request params" });
-      }
-
-      // Create a query to filter by adminId
-      const query = { adminId };
-
-      // Calculate skip value for pagination
-      const skip = (page - 1) * limit;
-
-      // Fetch transactions and total count
-      const [transactions, total] = await Promise.all([
-          TransactionHistory.find(query)
-              .sort({ createdAt: -1 })
-              .skip(skip)
-              .limit(Number(limit)),
-          TransactionHistory.countDocuments(query),
-      ]);
+      const adminId = req.admin.id; // JWT se decode kiya hua ID
+      
+      // Simply fetch all transactions for the admin, sorted by date
+      const transactions = await TransactionHistory.find({ adminId })
+          .sort({ createdAt: -1 });
 
       return res.status(200).json({
-          transactions,
-          pagination: {
-              currentPage: Number(page),
-              totalPages: Math.ceil(total / limit),
-              totalRecords: total,
-              limit: Number(limit),
-          },
+          success: true,
+          data: transactions
       });
   } catch (error) {
-      console.error("Error fetching transaction history:", error);
-      return res.status(500).json({ message: "Internal server error" });
+      return res.status(500).json({
+          success: false,
+          message: 'Server error. Kuch der baad try kare.'
+      });
   }
 };
 
